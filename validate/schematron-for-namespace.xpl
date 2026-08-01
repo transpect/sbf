@@ -93,44 +93,52 @@
     </p:otherwise>
   </p:choose>
 
-  <p:if test="$namespace-uri = 'http://www.w3.org/ns/xproc-step' and $local-name = 'archive'"
-    name="process-contents">
-    <p:output port="report" sequence="true" pipe="report@process-xml-entries"/>
-    <p:output port="result" primary="true" sequence="true">
-      <p:documentation>This result will become the new contents “stream” that will go into the output zip. Even if the
-        files were renamed for the output zip, the base-uri property will stay the same. The renaming only occurs 
-      in the c:entry/@name attribute of the archive manifest.</p:documentation>
-    </p:output>
-    <p:for-each name="process-xml-entries">
-      <p:with-input pipe="contents@schematron-for-namespace"/>
-      <p:output port="report" pipe="report@is-xml" sequence="true"/>
-      <p:output port="result" primary="true"/>
-      <p:variable name="base-uri" as="xs:string" select="p:document-property(., 'base-uri')"/>
-      <p:variable name="is-xml" as="xs:boolean" select="$base-uri = /c:archive/c:entry[@namespace-uri]/@href"/>
-      <p:choose name="is-xml">
-        <p:when test="$is-xml">
-          <p:output port="report" pipe="report@recursive-schematron-for-namespace"/>
-          <p:output port="result" primary="true"/>
-          <sbf:schematron-for-namespace name="recursive-schematron-for-namespace">
-            <p:with-input port="schema" pipe="schema@schematron-for-namespace"/>
-            <p:with-input port="contents">
+  <p:choose name="process-contents">
+    <p:when test="$namespace-uri = 'http://www.w3.org/ns/xproc-step' and $local-name = 'archive'">
+      <p:output port="report" sequence="true" pipe="report@process-xml-entries"/>
+      <p:output port="result" primary="true" sequence="true">
+        <p:documentation>This result will become the new contents “stream” that will go into the output zip. Even if the
+          files were renamed for the output zip, the base-uri property will stay the same. The renaming only occurs 
+        in the c:entry/@name attribute of the archive manifest.</p:documentation>
+      </p:output>
+      <p:for-each name="process-xml-entries">
+        <p:with-input pipe="contents@schematron-for-namespace"/>
+        <p:output port="report" pipe="report@is-xml" sequence="true"/>
+        <p:output port="result" primary="true"/>
+        <p:variable name="base-uri" as="xs:string" select="p:document-property(., 'base-uri')"/>
+        <p:variable name="is-xml" as="xs:boolean" select="$base-uri = /c:archive/c:entry[@namespace-uri]/@href"/>
+        <p:choose name="is-xml">
+          <p:when test="$is-xml">
+            <p:output port="report" pipe="report@recursive-schematron-for-namespace"/>
+            <p:output port="result" primary="true"/>
+            <sbf:schematron-for-namespace name="recursive-schematron-for-namespace">
+              <p:with-input port="schema" pipe="schema@schematron-for-namespace"/>
+              <p:with-input port="contents">
+                <p:empty/>
+              </p:with-input>
+              <p:with-option name="debug" select="$debug"/>
+              <p:with-option name="debug-dir-uri" select="$debug-dir-uri"/>
+            </sbf:schematron-for-namespace>
+          </p:when>
+          <p:otherwise>
+            <p:output port="result" primary="true"/>
+            <p:output port="report" sequence="true">
               <p:empty/>
-            </p:with-input>
-            <p:with-option name="debug" select="$debug"/>
-            <p:with-option name="debug-dir-uri" select="$debug-dir-uri"/>
-          </sbf:schematron-for-namespace>
-        </p:when>
-        <p:otherwise>
-          <p:output port="result" primary="true"/>
-          <p:output port="report" sequence="true">
-            <p:empty/>
-          </p:output>
-          <p:identity/>
-        </p:otherwise>
-      </p:choose>
-    </p:for-each>
-  </p:if>
-
-  <p:sink name="sink0"/>
+            </p:output>
+            <p:identity/>
+          </p:otherwise>
+        </p:choose>
+      </p:for-each>
+    </p:when>
+    <p:otherwise>
+      <p:output port="report" sequence="true">
+        <p:empty/>
+      </p:output>
+      <p:output port="result" primary="true" sequence="true">
+        <p:empty/>
+      </p:output>
+      <p:sink/>
+    </p:otherwise>
+  </p:choose>
 
 </p:declare-step>

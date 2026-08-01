@@ -43,7 +43,7 @@
       <p:viewport match="nvdl:validate[@schema][empty(@schemaType) or ends-with(@schemaType, 'xml')]"
         name="get-schematron">
         <p:load href="{/nvdl:validate/@schema}" name="load-schematron"/>
-        <p:choose message="NS: {namespace-uri(/*)}">
+        <p:choose>
           <p:when test="namespace-uri(/*) = 'http://purl.oclc.org/dsdl/schematron'">
             <sbf:assemble-schematron name="assemble-schematron"/>
             <p:insert position="last-child">
