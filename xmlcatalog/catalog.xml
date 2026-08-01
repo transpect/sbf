@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<catalog xmlns="urn:oasis:names:tc:entity:xmlns:xml:catalog">
+
+  <public publicId="-//ISO//DTD ISO Standards Tag Set (ISOSTS) DTD v1.1 20130701//EN" uri="../schema/isosts/dtd/ISOSTS.dtd"/>
+  <systemSuffix systemIdSuffix="ISOSTS.dtd" uri="../schema/isosts/dtd/ISOSTS.dtd"/>
+  <!--<systemSuffix systemIdSuffix="NISO-STS-interchange-1-mathml3.dtd" 
+    uri="../schema/nisosts/NISO-STS-interchange-1-MathML3-DTD/NISO-STS-interchange-1-mathml3.dtd"/>-->
+  <rewriteURI uriStartString="http://www.iso.org/schema/isosts/resources/" rewritePrefix="../isosts2html/"/>
+  <rewriteURI uriStartString="http://transpect.io/sbf/" rewritePrefix="../"/>
+</catalog>

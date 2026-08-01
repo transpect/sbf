@@ -1,0 +1,493 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<grammar 
+    xmlns="http://relaxng.org/ns/structure/1.0"
+    xmlns:a="http://relaxng.org/ns/compatibility/annotations/1.0"
+    datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes">
+  <include href="../schematron/schematron.rng" ns="http://purl.oclc.org/dsdl/schematron">
+    <define name="foreign-element">
+      <element>
+        <anyName>
+          <except>
+            <nsName ns="http://purl.oclc.org/dsdl/schematron"/>
+            <nsName ns="http://transpect.io/schematron-batch-fix"/>
+          </except>
+        </anyName>
+        <zeroOrMore>
+          <choice>
+            <attribute>
+              <anyName/>
+            </attribute>
+            <ref name="foreign-element"/>
+            <ref name="schema"/>
+            <text/>
+          </choice>
+        </zeroOrMore>
+      </element>
+    </define>
+    
+    <define name="foreign-attributes">
+    <zeroOrMore>
+      <attribute>
+        <anyName>
+          <except>
+            <nsName ns=""/>
+            <nsName ns="http://www.w3.org/XML/1998/namespace"/>
+            <nsName ns="http://purl.oclc.org/dsdl/schematron"/>
+            <nsName ns="http://transpect.io/schematron-batch-fix"/>
+          </except>
+        </anyName>
+      </attribute>
+    </zeroOrMore>
+  </define>
+    
+    <define name="assert">
+      <element name="assert">
+        <ref name="assert-report-atts"/>
+        <ref name="assert-report-model"/>
+      </element>
+    </define>
+    
+    <define name="report">
+      <element name="report">
+        <ref name="assert-report-atts"/>
+        <ref name="assert-report-model"/>
+      </element>
+    </define>
+    
+    <define name="schema">
+      <element name="schema">
+        <optional>
+          <attribute name="id">
+            <data type="ID"/>
+          </attribute>
+        </optional>
+        <ref name="rich"/>
+        <optional>
+          <attribute name="schemaVersion">
+            <ref name="non-empty-string"/>
+          </attribute>
+        </optional>
+        <optional>
+          <attribute name="defaultPhase">
+            <data type="IDREF"/>
+          </attribute>
+        </optional>
+        <optional>
+          <attribute name="queryBinding">
+            <ref name="non-empty-string"/>
+          </attribute>
+        </optional>
+        <interleave>
+          <ref name="foreign"/>
+          <zeroOrMore>
+            <ref name="inclusion"/>
+          </zeroOrMore>
+          <optional>
+            <ref name="top-level-extends"/>
+          </optional>
+          <group>
+            <optional>
+              <ref name="title"/>
+            </optional>
+            <zeroOrMore>
+              <ref name="ns"/>
+            </zeroOrMore>
+            <zeroOrMore>
+              <ref name="p"/>
+            </zeroOrMore>
+            <zeroOrMore>
+              <ref name="let"/>
+            </zeroOrMore>
+            <zeroOrMore>
+              <ref name="phase"/>
+            </zeroOrMore>
+            <oneOrMore>
+              <ref name="pattern"/>
+            </oneOrMore>
+            <zeroOrMore>
+              <ref name="p"/>
+            </zeroOrMore>
+            <optional>
+              <ref name="diagnostics"/>
+            </optional>
+            <optional>
+              <ref name="properties"/>
+            </optional>
+          </group>
+        </interleave>
+      </element>
+    </define>
+    
+    <define name="pattern">
+    <element name="pattern">
+      <optional>
+        <attribute name="documents">
+          <ref name="pathValue"/>
+        </attribute>
+      </optional>
+       <optional>
+        <attribute name="alternative-for" ns="http://transpect.io/schematron-batch-fix">
+          <data type="string"/>
+        </attribute>
+      </optional>
+      <optional>
+        <attribute name="product-version-regex" ns="http://transpect.io/schematron-batch-fix">
+           <data type="string"/>
+        </attribute>
+      </optional>
+      <optional>
+        <attribute name="xml:base">
+          <ref name="uriValue"/>
+        </attribute>
+      </optional>
+      <ref name="rich"/>
+      <interleave>
+        <ref name="foreign"/>
+        <zeroOrMore>
+          <ref name="inclusion"/>
+        </zeroOrMore>
+        <choice>
+          <group>
+            <attribute name="abstract">
+              <value>true</value>
+            </attribute>
+            <attribute name="id">
+              <data type="ID"/>
+            </attribute>
+            <optional>
+              <ref name="title"/>
+            </optional>
+            <group>
+              <zeroOrMore>
+                <ref name="p"/>
+              </zeroOrMore>
+              <zeroOrMore>
+                <ref name="let"/>
+              </zeroOrMore>
+              <zeroOrMore>
+                <ref name="rule"/>
+              </zeroOrMore>
+            </group>
+          </group>
+          <group>
+            <optional>
+              <attribute name="abstract">
+                <value>false</value>
+              </attribute>
+            </optional>
+            
+              <attribute name="id">
+                <data type="ID"/>
+              </attribute>
+            
+            <optional>
+              <ref name="title"/>
+            </optional>
+            <group>
+              <zeroOrMore>
+                <ref name="p"/>
+              </zeroOrMore>
+              <zeroOrMore>
+                <ref name="let"/>
+              </zeroOrMore>
+              <zeroOrMore>
+                <ref name="rule"/>
+              </zeroOrMore>
+            </group>
+          </group>
+          <group>
+            <optional>
+              <attribute name="abstract">
+                <value>false</value>
+              </attribute>
+            </optional>
+            <attribute name="is-a">
+              <data type="IDREF"/>
+            </attribute>
+            
+              <attribute name="id">
+                <data type="ID"/>
+              </attribute>
+            
+            <optional>
+              <ref name="title"/>
+            </optional>
+            <group>
+              <zeroOrMore>
+                <ref name="p"/>
+              </zeroOrMore>
+              <zeroOrMore>
+                <ref name="param"/>
+              </zeroOrMore>
+            </group>
+          </group>
+        </choice>
+      </interleave>
+    </element>
+  </define>
+   
+   <define name="rule">
+    <element name="rule">
+       <optional>
+        <attribute name="product-version-regex" ns="http://transpect.io/schematron-batch-fix">
+           <data type="string"/>
+        </attribute>
+      </optional>
+      <optional>
+        <attribute name="flag">
+          <ref name="flagValue"/>
+        </attribute>
+      </optional>
+      <ref name="rich"/>
+      <ref name="linkable"/>
+      <interleave>
+        <ref name="foreign"/>
+        <zeroOrMore>
+          <ref name="inclusion"/>
+        </zeroOrMore>
+        <choice>
+          <group>
+            <attribute name="abstract">
+              <value>true</value>
+            </attribute>
+            <attribute name="id">
+              <data type="ID"/>
+            </attribute>
+            <zeroOrMore>
+              <ref name="let"/>
+            </zeroOrMore>
+            <oneOrMore>
+              <choice>
+                <ref name="assert"/>
+                <ref name="report"/>
+                <ref name="extends"/>
+                <ref name="p"/>
+              </choice>
+            </oneOrMore>
+          </group>
+          <group>
+            <attribute name="context">
+              <ref name="pathValue"/>
+            </attribute>
+              <attribute name="id">
+                <data type="ID"/>
+              </attribute>
+            <optional>
+              <attribute name="abstract">
+                <value>false</value>
+              </attribute>
+            </optional>
+            <zeroOrMore>
+              <ref name="let"/>
+            </zeroOrMore>
+            <oneOrMore>
+              <choice>
+                <ref name="assert"/>
+                <ref name="report"/>
+                <ref name="extends"/>
+                <ref name="p"/>
+              </choice>
+            </oneOrMore>
+          </group>
+        </choice>
+      </interleave>
+    </element>
+  </define>
+   
+  </include>
+  
+  <define name="assert-report-model" ns="http://purl.oclc.org/dsdl/schematron">
+    <interleave>
+      <ref name="foreign"/>
+      <zeroOrMore>
+        <choice>
+          <text/>
+          <ref name="name"/>
+          <ref name="value-of"/>
+          <ref name="emph"/>
+          <ref name="dir"/>
+          <ref name="span"/>
+          <ref name="xsl-fix"/>
+          <ref name="xproc-fix"/>
+        </choice>
+      </zeroOrMore>
+    </interleave>
+  </define>
+    
+  <define name="assert-report-atts">
+    <attribute name="test">
+      <ref name="exprValue"/>
+    </attribute>
+     <optional>
+        <attribute name="product-version-regex" ns="http://transpect.io/schematron-batch-fix">
+           <data type="string"/>
+        </attribute>
+      </optional>
+    <optional>
+      <attribute name="flag">
+        <ref name="flagValue"/>
+      </attribute>
+    </optional>
+      <attribute name="id">
+        <data type="ID"/>
+      </attribute>
+    <optional>
+      <attribute name="diagnostics">
+        <data type="IDREFS"/>
+      </attribute>
+    </optional>
+    <optional>
+      <attribute name="properties">
+        <data type="IDREFS"/>
+      </attribute>
+    </optional>
+    <ref name="rich"/>
+    <ref name="linkable"/>
+  </define>
+
+  <define name="xsl-fix">
+    <element name="xsl-fix" ns="http://transpect.io/schematron-batch-fix">
+      <attribute name="href">
+        <ref name="uriValue"/>
+      </attribute>
+      <attribute name="mode">
+        <data type="NMTOKEN"/>
+      </attribute>
+      <optional>
+        <attribute name="depends-on">
+          <data type="NMTOKENS"/>
+        </attribute>
+      </optional>
+      <zeroOrMore>
+        <ref name="sbf-param"/>
+      </zeroOrMore>
+    </element>
+  </define>
+  
+  <define name="sbf-param">
+    <element name="param" ns="http://transpect.io/schematron-batch-fix">
+      <attribute name="name">
+        <data type="NMTOKEN"/>
+      </attribute>
+      <choice>
+        <element name="value-of" ns="http://www.w3.org/1999/XSL/Transform">
+          <attribute name="select">
+            <data type="string" datatypeLibrary=""/>
+          </attribute>
+        </element>
+        <text/>
+      </choice>
+    </element>
+  </define>
+  
+  <define name="xproc-fix">
+    <element name="xproc-fix" ns="http://transpect.io/schematron-batch-fix">
+      <attribute name="href">
+        <ref name="uriValue"/>
+      </attribute>
+      <optional>
+        <attribute name="depends-on">
+          <data type="NMTOKENS"/>
+        </attribute>
+      </optional>
+      <optional>
+        <attribute name="operates-on">
+          <choice>
+            <value>archive-manifest-and-contents</value>
+            <value>expanded-archive-manifest</value>
+            <value>directory</value>
+            <value>file</value>
+          </choice>
+        </attribute>
+      </optional>
+      <zeroOrMore>
+        <choice>
+          <element name="xsl-uri" ns="http://transpect.io/schematron-batch-fix">
+            <optional>
+              <attribute name="namespace-uri">
+                <a:documentation>For XSLT that is meant to be applied to documents whose top-level element is in no
+                  namespace, use the special string '#none'. Otherwise, use the top-level element’s namespace
+                  URI.</a:documentation>
+              </attribute>
+            </optional>
+            <optional>
+              <attribute name="mode">
+                <data type="string" datatypeLibrary=""/>
+              </attribute>
+            </optional>
+            <attribute name="href">
+              <data type="string" datatypeLibrary=""/>
+            </attribute>
+            <zeroOrMore>
+              <ref name="sbf-param">
+                <a:documentation>Parameters for XSLT invocations on documents with </a:documentation>
+              </ref>
+            </zeroOrMore>
+          </element>
+          <ref name="sbf-param">
+            <a:documentation>Parameters for the XProc pipeline</a:documentation>
+          </ref>
+        </choice>
+      </zeroOrMore>
+    </element>
+  </define>
+  
+  <define name="top-level-extends">
+    <element name="extends" ns="http://transpect.io/schematron-batch-fix">
+      <attribute name="href">
+        <ref name="uriValue"/>
+      </attribute>
+      <zeroOrMore>
+        <choice>
+        <ref name="sbf_pattern"/>
+        <ref name="xsl-fix-for"/>
+        <ref name="dependency"/>
+        </choice>
+      </zeroOrMore> 
+    </element>
+  </define>
+  
+  <!--<define name="ns" combine="interleave">
+    <optional>
+      <ref name="top-level-extends"/>
+    </optional>
+  </define>-->
+  
+  <define name="sbf_pattern">
+    <element name="pattern" ns="http://transpect.io/schematron-batch-fix">
+      <choice>
+        <attribute name="selected-alternative">
+          <data type="NMTOKEN"/>
+        </attribute>
+        <attribute name="deselect">
+          <data type="NMTOKEN"/>
+        </attribute>
+
+      </choice>
+    </element>
+  </define>
+  <define name="xsl-fix-for">
+    <element name="xsl-fix-for" ns="http://transpect.io/schematron-batch-fix">
+      <attribute name="rid">
+        <data type="NMTOKEN"/>
+      </attribute>
+      <attribute name="href">
+        <ref name="uriValue"/> 
+      </attribute>
+      <attribute name="mode">
+        <data type="NMTOKEN"/> 
+      </attribute>
+    </element>
+  </define>
+  <define name="dependency">
+    <element name="dependency" ns="http://transpect.io/schematron-batch-fix">
+      <attribute name="fix-for">
+        <data type="NMTOKEN"/>
+      </attribute>
+      <attribute name="depends-on">
+        <data type="NMTOKENS"/>
+      </attribute>  
+    </element>
+  </define>
+  
+</grammar>
