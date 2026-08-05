@@ -6,6 +6,7 @@
   xmlns:svrl="http://purl.oclc.org/dsdl/svrl"
   xmlns:nvdl="http://purl.oclc.org/dsdl/nvdl/ns/structure/1.0"
   xmlns:c="http://www.w3.org/ns/xproc-step"
+  xmlns:cx="http://xmlcalabash.com/ns/extensions"
   xmlns:tr="http://transpect.io"
   version="3.1" 
   name="batch-val" type="sbf:batch-val">
@@ -97,7 +98,7 @@
      3. If source is archive manifest: 
        a. viewport all c:entries with NS (if there are none, the process is finished and returns the input unchanged): 
        b. apply 2. to this input (do we support archives in archives? not yet)
-    10. Create HTML and brief report
+    4. Create HTML and brief report
   </p:documentation>
 
   <sbf:expand-schema name="expand-schema">
@@ -134,8 +135,10 @@
     <p:output port="report" pipe="report@schematron-for-namespace" sequence="true"/>
     <p:output port="result-contents" pipe="result-contents@schematron-for-namespace" sequence="true"/>
 
+    <p:variable name="is-zip" select="p:document-property(., 'content-type') = 'application/zip'" as="xs:boolean"/>
+
     <p:choose name="zip-or-xml">
-      <p:when test="p:document-property(., 'content-type') = 'application/zip'">
+      <p:when test="$is-zip">
         <p:output port="result" primary="true"/>
         <p:output port="contents" sequence="true" pipe="contents@enrich-archive-manifest"/>
         <sbf:enrich-archive-manifest name="enrich-archive-manifest"/>
@@ -156,7 +159,24 @@
       <p:with-option name="debug" select="$debug"/>
       <p:with-option name="debug-dir-uri" select="$debug-dir-uri"/>
     </sbf:schematron-for-namespace>
+    
+    <p:choose name="zip-or-xml2">
+      <p:when test="$is-zip">
+        <p:output port="result" primary="true"/>
+        <p:delete match="@name-old | @cx:* | c:entry/*" name="delete-unsupported-manifest-attributes"/>
+        <p:archive name="repackage">
+          <p:with-input port="source" pipe="result-contents@schematron-for-namespace"/>
+          <p:with-input port="manifest" pipe="result@delete-unsupported-manifest-attributes"/>
+        </p:archive>
+      </p:when>
+      <p:otherwise>
+        <p:output port="result" primary="true"/>
+        <p:output port="contents" sequence="true">
+          <p:empty/>
+        </p:output>
+        <p:identity/>
+      </p:otherwise>
+    </p:choose>
   </p:for-each>  
-  
 
 </p:declare-step>

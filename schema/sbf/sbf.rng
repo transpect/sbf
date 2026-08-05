@@ -393,10 +393,11 @@
       <optional>
         <attribute name="operates-on">
           <choice>
-            <value>archive-manifest-and-contents</value>
+            <value>expanded-archive-manifest-and-contents</value>
             <value>expanded-archive-manifest</value>
             <value>directory</value>
             <value>file</value>
+            <value>file-in-contents</value>
           </choice>
         </attribute>
       </optional>

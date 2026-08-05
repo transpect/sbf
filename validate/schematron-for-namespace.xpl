@@ -29,7 +29,9 @@
     with base-uri document properties that match c:entry/@href in the manifest.</p:documentation>
   </p:input>
   
-  <p:output port="result" primary="true" pipe="result@validate-if-schematron-exists-for-namespace"/>
+  <p:output port="result" primary="true" pipe="result@validate-if-schematron-exists-for-namespace">
+    <p:documentation>The updated zip manifest or XML file that appeared on source.</p:documentation>
+  </p:output>
   <p:output port="result-contents" sequence="true" pipe="result-contents@process-contents"/>
   <p:output port="report" pipe="report@validate-if-schematron-exists-for-namespace report@process-contents" sequence="true"/>
   
@@ -47,20 +49,11 @@
     <p:when test="exists(/nvdl:rules)">
       <p:output port="result" sequence="true" primary="true"/>
       <p:output port="params" sequence="true" pipe="result@param-sets" content-types="application/json"/>
-      <!-- We need to work around https://codeberg.org/xmlcalabash/xmlcalabash3/issues/790 for the time being: 
       <p:for-each name="param-sets">
         <p:with-input select="/nvdl:rules/nvdl:namespace[@ns = $namespace-uri]/nvdl:validate/c:param-set"/>
         <p:output port="result" content-types="application/json"/>
         <p:cast-content-type content-type="application/json"/>
-      </p:for-each> -->
-      <p:insert name="prelim-param-sets" position="last-child">
-        <p:with-input port="source">
-          <p:inline><c:param-set><c:param name="allow-foreign" value="true"/></c:param-set></p:inline>
-        </p:with-input>
-        <p:with-input port="insertion" pipe="schema@schematron-for-namespace"
-          select="/nvdl:rules/nvdl:namespace[@ns = $namespace-uri]/nvdl:validate/c:param-set/c:param"/>
-      </p:insert>
-      <p:cast-content-type name="param-sets" content-type="application/json"/>
+      </p:for-each>
       <p:identity>
         <p:with-input select="/nvdl:rules/nvdl:namespace[@ns = $namespace-uri]/nvdl:validate/sch:schema" 
           pipe="result@schema-into-focus"/>
@@ -90,22 +83,18 @@
     </p:when>
     <p:otherwise>
       <p:output port="report" pipe="result@set-svrl-base-uri"/>
-      <p:output port="result" primary="true" pipe="result@validate-with-schematron"/>
-      <p:output port="result-contents" pipe="contents@schematron-for-namespace" sequence="true"/>
-<!--      <p:output port="result-contents" pipe="result-contents@apply-fixes"/>-->
+      <p:output port="result" primary="true" pipe="result@apply-fixes"/>
+      <p:output port="result-contents" pipe="result-contents@apply-fixes" sequence="true"/>
       <sbf:add-srcpaths name="add-srcpaths">
         <p:with-input pipe="source@schematron-for-namespace"/>
       </sbf:add-srcpaths>
       <p:variable name="base-uri" as="xs:string?" select="p:document-property(., 'base-uri')"/>
-      <p:variable name="params" as="map(*)*" pipe="params@schematron-from-nvdl-or-standalone" select="."/>
-      <!--<p:variable name="params" as="map(*)*" pipe="params@schematron-from-nvdl-or-standalone" 
+      <p:variable name="params" as="map(*)*" pipe="params@schematron-from-nvdl-or-standalone" 
         select="collection()" collection="true"/> 
-        Calabash bug: https://codeberg.org/xmlcalabash/xmlcalabash3/issues/790 -->
       <tr:oxy-validate-with-schematron name="validate-with-schematron" p:message="val base uri: {$base-uri}, name:
         {/*/name()}">
-        <!--<p:with-option name="parameters" 
-          select="map:merge((map{xs:QName('allow-foreign'): 'true'} $params))"/>-->
-        <p:with-option name="parameters" select="map:merge($params, map{'duplicates': 'combine'})"/>
+        <p:with-option name="parameters" 
+          select="map:merge((map{xs:QName('allow-foreign'): 'true'}, $params), map{'duplicates': 'combine'})"/>
         <p:with-input port="schema" pipe="result@schematron-from-nvdl-or-standalone"/>
       </tr:oxy-validate-with-schematron>
       <p:identity name="svrl-into-focus"><p:with-input pipe="report@validate-with-schematron"/></p:identity>
@@ -115,13 +104,30 @@
       <tr:store-debug name="store-svrl" active="{$debug}" base-uri="{$debug-dir-uri}"
         pipeline-step="schematron_pass1/{$base-uri => replace('^.+/', '')}.svrl"/>
       
-      <sbf:fixes-list debug="{$debug}" debug-dir-uri="{$debug-dir-uri}">
+      <sbf:fixes-list debug="{$debug}" debug-dir-uri="{$debug-dir-uri}" name="fixes-list">
         <p:with-input port="schema" pipe="result@schematron-from-nvdl-or-standalone"/>
       </sbf:fixes-list>
+      <p:identity message="SFNTOP {/*/name()}">
+        <p:with-input pipe="contents@schematron-for-namespace"></p:with-input>
+      </p:identity>
+      
+      <p:count/>
+      
+      <p:identity message="SFNSIZE {.}">
+        <p:with-input pipe="result@fixes-list"></p:with-input>
+      </p:identity>
+      
       <sbf:apply-fixes name="apply-fixes">
         <p:with-input port="source" pipe="result@add-srcpaths"/>
         <p:with-input port="contents" pipe="contents@schematron-for-namespace"/>
       </sbf:apply-fixes>
+      
+      <p:count>
+        <p:with-input port="source" pipe="result-contents@apply-fixes"/>
+      </p:count>
+      
+      <p:identity message="SFNSIZE-after {.}">
+      </p:identity>
       <!--<tr:oxy-validate-with-schematron name="validate-with-schematron_pass2">
         <p:with-option name="parameters" select="map{xs:QName('allow-foreign'): 'true'}"/>
         <p:with-input port="schema" pipe="result@schematron-from-nvdl-or-standalone"/>
