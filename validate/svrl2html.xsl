@@ -16,108 +16,106 @@
 
   <xsl:param name="common-path" as="xs:string"/>
   <xsl:param name="group-by-error-code" as="xs:boolean" select="true()"/>
-
+  <xsl:param name="collection-uri" as="xs:string?" select="()">
+    <!-- For standalone invocation with Saxon, pass the URI of reports.catalog.xml that whas stored during debugging. 
+    It should look like this:
+    <collection xmlns:xs="http://www.w3.org/2001/XMLSchema"
+      xml:base="file:/mnt/c/Users/gerrit/DIN/sbf-frontend/debug/reports.catalog.xml">
+      <doc href="file:/mnt/c/Users/gerrit/DIN/sbf-frontend/debug/reports/__filename__unknown__1.xml"/>
+      <doc href="file:/mnt/c/Users/gerrit/DIN/sbf-frontend/debug/reports/__filename__unknown__1.2.xml"/>
+    </collection> 
+    The docs should contain sbf:single-doc-reports top-level elements with pairwise SVRL reports.
+    It is not clear yet whether other validation reports (XVRL or c:errors) are also expected to appear pairwise.
+    --> 
+  </xsl:param>
+  
   <xsl:key name="by-id" match="*[@id]" use="@id"/>
   <xsl:key name="by-location" match="*[@location]" use="@location"/>
 
-  <xsl:template match="/" mode="#default">
+  <xsl:template name="main">
     <xsl:variable name="content" as="element(html:tr)*">
-      <xsl:variable name="individual-reports" as="document-node(element(*))*">
-        <xsl:for-each select="/reports/*">
+      <xsl:for-each select="collection($collection-uri)/sbf:single-doc-reports">
+        <xsl:variable name="single-doc-reports" as="element(sbf:single-doc-reports)" select="."/>
+        <xsl:variable name="original-report" as="document-node(element(svrl:schematron-output))">
           <xsl:document>
-            <xsl:copy-of select="."/>
+            <xsl:sequence select="svrl:schematron-output[1]"/>
           </xsl:document>
-        </xsl:for-each>
-      </xsl:variable>
-      <xsl:variable name="original-reports" as="document-node(element(*))*" 
-        select="$individual-reports[not(ends-with(base-uri(/*), 'fixed.xml.val'))]"/>
-      <xsl:variable name="post-fix-reports" as="document-node(element(*))*" 
-        select="$individual-reports[ends-with(base-uri(/*), 'fixed.xml.val')]"/>
-      <xsl:variable name="msgs" as="element(*)*" 
-        select="$original-reports//svrl:failed-assert | $original-reports//svrl:successful-report 
-                | $original-reports//c:error"/>
-      <xsl:if test="exists($msgs)">
+        </xsl:variable>
+        <xsl:variable name="post-fix-report" as="document-node(element(svrl:schematron-output))">
+          <xsl:document>
+            <xsl:sequence select="svrl:schematron-output[2]"/>
+          </xsl:document>
+        </xsl:variable>
+        <xsl:variable name="msgs" as="element(*)*" 
+                      select="$original-report/*/(svrl:failed-assert | svrl:successful-report) 
+         (: | $original-reports//c:error:)"/>
+        <xsl:message select="'CCCCCCCCCCCCCc ' || count($msgs) "/>
+        <tr id="file{format-number(position(), '0000')}" class="sep">
+          <th colspan="5">
+            <!--<xsl:value-of select="substring-after(replace(current-grouping-key(), '//+', '/'), 
+                                                  replace($common-path, '//+', '/'))"/>-->
+            <xsl:value-of select="$single-doc-reports/@doc-uri"/>
+          </th>
+        </tr>
         <xsl:for-each-group select="$msgs" 
-          group-by="(.//svrl:text/sch:span[@class='srcfile'], replace(base-uri(/*), '\.val$', ''))[1]">
-          <xsl:sort select="current-grouping-key()"/>
-          <tr id="file{format-number(position(), '0000')}" class="sep">
-            <th colspan="5">
-              <xsl:value-of select="substring-after(replace(current-grouping-key(), '//+', '/'), 
-                                                    replace($common-path, '//+', '/'))"/>
-            </th>
-          </tr>
-          <xsl:for-each-group select="current-group()" 
-            group-by="(preceding-sibling::svrl:active-pattern[1]/@id, 'Schema'[current()/self::c:error])[1]">
-            <xsl:variable name="active-pattern" select="key('by-id', current-grouping-key())/self::svrl:active-pattern" 
-              as="node()?"/>
-            <xsl:for-each select="current-group()">
-              <tr id="{generate-id()}">
-                <xsl:if test="position() = 1">
-                  <xsl:attribute name="class" select="'sep'" />
-                </xsl:if>
-                <xsl:choose>
-                  <xsl:when test="exists($active-pattern)">
-                    <td class="impact {(@role, 'error')[1]}">
-                      <xsl:value-of select="(@role, 'error')[1]"/>
-                    </td>
-                    <td class="path">
-                      <code>
-                        <xsl:value-of select="if (not(matches($active-pattern/@document, '\.xpl$'))) 
-                                              then @location 
-                                              else replace(@location, '^.+xproc-step[^/]+(.+)$', '$1')"/>
-                      </code>
-                    </td>
-                    <td class="message">
-                        <xsl:apply-templates select="svrl:text/node()" mode="#current"/>
-                    </td>
-                    <td class="pattern-id">
-                      <xsl:value-of select="tokenize(svrl:text/sch:span[@class = 'rule-base-uri'], '/')[last()], 
-                                            $active-pattern/@id, @id" separator=" > "/>
-                    </td>
-                    <xsl:variable name="corresponding-post-fix-report" as="document-node(element(*))?"
-                      select="$post-fix-reports[base-uri(/*) = replace(base-uri(current()), '\.xml\.val$', '.fixed.xml.val')]"/>
-<!--                    <xsl:message select="'CCCCCCCCCCCCCCCC ',exists($corresponding-post-fix-report), base-uri(), ' :: ', $post-fix-reports/*/base-uri()"></xsl:message>-->
-                    <xsl:variable name="location" as="xs:string?" select="@location"/>
-                    <!--<xsl:if test="contains(@location, 'namespace-uri')">
-                      <xsl:message select="'NNNNNNNNNNNNNN srcpath: ', 
-                        key('by-id', @id, $corresponding-post-fix-report)/svrl:text/sch:span[@class = 'srcpath'] ! tr:Q-notation-to-svrl-location(.), '&#xa;Location:', string(@location)"></xsl:message>
-                    </xsl:if>-->
-                    <!--<xsl:if test="@location = '/standard[1]/front[1]/std-meta[1]/title-wrap[1]'">
-                      <xsl:message select="'LLLLLLLLLL id: ', string(@id), ' srcpath: ', 
-                        key('by-id', @id, $corresponding-post-fix-report)/svrl:text/sch:span[@class = 'srcpath'] ! tr:Q-notation-to-svrl-location(.), '&#xa;Location:', string(@location),
-                        ' :: count: ', count(key('by-id', @id, $corresponding-post-fix-report))"></xsl:message>
-                    </xsl:if>-->
-                    <xsl:variable name="fixed" as="xs:boolean"
-                      select="if (exists($corresponding-post-fix-report))
-                              then empty(key('by-id', @id, $corresponding-post-fix-report)
-                                           [svrl:text/sch:span[@class = 'srcpath'] ! tr:Q-notation-to-svrl-location(.) = $location]
-                                        )
-                              else false()"/>
-                    <td class="fixed {$fixed}">
-                      <xsl:value-of select="$fixed"/>
-                    </td>
-                  </xsl:when>
-                  <xsl:otherwise>
-                    <td class="impact error">
-                      error
-                    </td>
-                    <td class="path">
-                      <code><xsl:value-of select="@xpath"/></code> 
-                    </td>
-                    <td>
-                      <xsl:value-of select="."/>
-                    </td>
-                    <td>
-                      Schema: <xsl:value-of select="replace(../@schema, '\.rng$', '')"/>
-                    </td>
-                    <td> </td>
-                  </xsl:otherwise>
-                </xsl:choose>
-              </tr>
-            </xsl:for-each>
-          </xsl:for-each-group>  
-        </xsl:for-each-group>
-      </xsl:if>
+          group-by="(preceding-sibling::svrl:active-pattern[1]/@id, 'Schema'[current()/self::c:error])[1]">
+          <xsl:variable name="active-pattern" select="key('by-id', current-grouping-key())/self::svrl:active-pattern" 
+            as="node()?"/>
+          <xsl:for-each select="current-group()">
+            <tr id="{generate-id()}">
+              <xsl:if test="position() = 1">
+                <xsl:attribute name="class" select="'sep'" />
+              </xsl:if>
+              <xsl:choose>
+                <xsl:when test="exists($active-pattern)">
+                  <td class="impact {(@role, 'error')[1]}">
+                    <xsl:value-of select="(@role, 'error')[1]"/>
+                  </td>
+                  <td class="path">
+                    <code>
+                      <xsl:value-of select="if (not(matches($active-pattern/@document, '\.xpl$'))) 
+                                            then @location 
+                                            else replace(@location, '^.+xproc-step[^/]+(.+)$', '$1')"/>
+                    </code>
+                  </td>
+                  <td class="message">
+                      <xsl:apply-templates select="svrl:text/node()" mode="#current"/>
+                  </td>
+                  <td class="pattern-id">
+                    <xsl:value-of select="tokenize(svrl:text/sch:span[@class = 'rule-base-uri'], '/')[last()], 
+                                          $active-pattern/@id, @id" separator=" > "/>
+                  </td>
+                  <xsl:variable name="location" as="xs:string?" select="@location"/>
+                  <xsl:variable name="fixed" as="xs:boolean"
+                    select="if (exists($post-fix-report))
+                            then empty(key('by-id', @id, $post-fix-report)
+                                         [svrl:text/sch:span[@class = 'srcpath'] ! tr:Q-notation-to-svrl-location(.) = $location]
+                                      )
+                            else false()"/>
+                  <td class="fixed {$fixed}">
+                    <xsl:value-of select="$fixed"/>
+                  </td>
+                </xsl:when>
+                <xsl:otherwise>
+                  <td class="impact error">
+                    error
+                  </td>
+                  <td class="path">
+                    <code><xsl:value-of select="@xpath"/></code> 
+                  </td>
+                  <td>
+                    <xsl:value-of select="."/>
+                  </td>
+                  <td>
+                    Schema: <xsl:value-of select="replace(../@schema, '\.rng$', '')"/>
+                  </td>
+                  <td> </td>
+                </xsl:otherwise>
+              </xsl:choose>
+            </tr>
+          </xsl:for-each>
+        </xsl:for-each-group>  
+      </xsl:for-each>
     </xsl:variable>
 
     <xsl:variable name="ok" as="element(html:tr)+">
@@ -128,7 +126,8 @@
 
     <xsl:call-template name="output-table">
       <xsl:with-param name="content" select="if ($content) then $content else $ok" />
-      <xsl:with-param name="title" select="string-join(distinct-values(/reports/svrl:schematron-output/@title), ' ')" />
+      <xsl:with-param name="title" 
+        select="string-join(distinct-values(collection($collection-uri)/sbf:single-doc-reports/svrl:schematron-output/@title), ' ')" />
     </xsl:call-template>
   </xsl:template>
   
@@ -276,47 +275,53 @@
               </xsl:for-each>
             </ul>
           </nav>
+          <!--<div class="temp">
+            <xsl:sequence select="$content"/>
+          </div>-->
           <div class="content">
             <xsl:choose>
               <xsl:when test="$group-by-error-code">
-                <details open="true">
-                  <summary>
-                    <xsl:sequence select="$content[exists(*/@colspan)]/*/node()"/>
-                  </summary>
-                  <xsl:for-each-group select="$content[empty(*/@colspan)]" group-by="html:td[@class = 'pattern-id']">
-                    <xsl:variable name="fixed-count" as="xs:integer"
-                                  select="count(current-group()/html:td[tokenize(@class, '\s+') = 'fixed']
-                                                                       [tokenize(@class, '\s+') = 'true'])"/>
-                    <details>
-                      <summary>
-                        <xsl:value-of select="current-grouping-key()"/>
-                        <xsl:text> – </xsl:text>
-                        <span>
-                          <xsl:sequence select="html:td[tokenize(@class, '\s+') = 'impact']/(@class, node())"/>
-                        </span>
-                        <xsl:text>: </xsl:text>
-                        <span>
-                          <xsl:sequence select="html:td[tokenize(@class, '\s+') = 'impact']/@class"/>
-                          <xsl:value-of select="count(current-group())"/>
-                        </span>
-                        <span>
-                          <xsl:attribute name="class" 
-                            select="if ($fixed-count = 0)
-                                    then 'fixed false'
-                                    else if (count(current-group()) - $fixed-count = 0)
-                                         then 'fixed true'
-                                         else 'warning'"/>
-                          <xsl:text>, fixed: </xsl:text>
-                          <xsl:value-of select="count(current-group()/html:td[tokenize(@class, '\s+') = 'fixed']
-                                                                             [tokenize(@class, '\s+') = 'true'])"/>
-                        </span>
-                      </summary>
-                      <xsl:call-template name="output-table-now-really">
-                        <xsl:with-param name="content" select="current-group()"/>
-                      </xsl:call-template>
-                    </details>
-                  </xsl:for-each-group>
-                </details>
+                <xsl:for-each-group select="$content" group-starting-with="html:tr[exists(*/@colspan)]">
+                  <details open="true">
+                    <summary>
+                      <b><xsl:sequence select="*/node()"/></b>
+                    </summary>
+                    <xsl:for-each-group select="current-group()[position() gt 1]" group-by="html:td[@class = 'pattern-id']">
+                      <xsl:variable name="fixed-count" as="xs:integer"
+                        select="count(current-group()/html:td[tokenize(@class, '\s+') = 'fixed']
+                        [tokenize(@class, '\s+') = 'true'])"/>
+                      <details>
+                        <summary>
+                          <xsl:value-of select="current-grouping-key()"/>
+                          <xsl:text> – </xsl:text>
+                          <span>
+                            <xsl:sequence select="html:td[tokenize(@class, '\s+') = 'impact']/(@class, node())"/>
+                          </span>
+                          <xsl:text>: </xsl:text>
+                          <span>
+                            <xsl:sequence select="html:td[tokenize(@class, '\s+') = 'impact']/@class"/>
+                            <xsl:value-of select="count(current-group())"/>
+                          </span>
+                          <span>
+                            <xsl:attribute name="class" 
+                              select="if ($fixed-count = 0)
+                              then 'fixed false'
+                              else if (count(current-group()) - $fixed-count = 0)
+                              then 'fixed true'
+                              else 'warning'"/>
+                            <xsl:text>, fixed: </xsl:text>
+                            <xsl:value-of select="count(current-group()/html:td[tokenize(@class, '\s+') = 'fixed']
+                              [tokenize(@class, '\s+') = 'true'])"/>
+                          </span>
+                        </summary>
+                        <xsl:call-template name="output-table-now-really">
+                          <xsl:with-param name="content" select="current-group()"/>
+                        </xsl:call-template>
+                      </details>
+                    </xsl:for-each-group>
+                  </details>  
+                </xsl:for-each-group>
+                
               </xsl:when>
               <xsl:otherwise>
                 <xsl:call-template name="output-table-now-really">
@@ -364,7 +369,7 @@
     </xsl:for-each-group>
   </xsl:template>
   
-  <xsl:template match="svrl:schematron-output/sbf:xsl-fix" mode="#default"/>
+  <xsl:template match="svrl:schematron-output/sbf:xsl-fix | svrl:schematron-output/sbf:xproc-fix" mode="#default"/>
   
   <xsl:template match="sch:span[@class = 'srcfile']" mode="#default"/>
 

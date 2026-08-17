@@ -32,15 +32,13 @@
     Currently we don’t expect to deal with multiple inputs passed to this step. We will eventually do so. 
     </p:documentation>
   </p:input>
+  <p:input port="svrl2html" href="svrl2html.xsl"/>
 
   <p:option name="input-uri" as="xs:string?" required="false">
     <p:documentation>Alternative way for specifying the file to be validated. Will only be used if there
     are zero documents on the 'source' port.</p:documentation>
   </p:option>
 
-  <!--<p:output port="htmlreport" primary="true">
-    <p:pipe port="result" step="svrl2html"/>
-  </p:output>-->
   <!--<p:output port="errors" sequence="true">
     <p:pipe port="result" step="insert-post-fix-svrl"/>
   </p:output>-->
@@ -48,9 +46,14 @@
     <p:pipe port="result" step="html2shortreport"/>
   </p:output>-->
 
-  <p:output port="result" primary="true"/>
+  <p:output port="result" primary="true" pipe="result@input-files">
+    <p:documentation>Always a Zip? Currently, it is a repackaged zip or the fixed XML. But we also want
+    a zip that contains the fixed input plus the reports (and maybe also the original input).</p:documentation>
+  </p:output>
   <p:output port="report" sequence="true" pipe="report@input-files"/>
   <p:output port="result-contents" sequence="true" pipe="result-contents@input-files"/>
+  <p:output port="htmlreport" pipe="result@svrl2html" 
+    serialization="map{'method': 'xhtml', 'use-character-maps': map {'&gt;': '>'}}"/>
   
   <p:option name="keep-srcpath" select="'pi_changed'">
     <p:documentation>Whether to keep srcpath attributes in the result. Possible values: 'no' (remove them),
@@ -179,4 +182,10 @@
     </p:choose>
   </p:for-each>  
 
+  <p:identity name="reports-into-focus"><p:with-input pipe="report@input-files"/></p:identity>
+  <tr:store-debug pipeline-step="reports" active="{$debug}" base-uri="{$debug-dir-uri}"/>
+
+  <p:xslt name="svrl2html" template-name="main">
+    <p:with-input port="stylesheet" pipe="svrl2html@batch-val"/>
+  </p:xslt>
 </p:declare-step>

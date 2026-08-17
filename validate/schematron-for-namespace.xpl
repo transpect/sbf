@@ -17,6 +17,15 @@
   <p:import href="fixes-list.xpl"/>
   <p:import href="apply-fixes.xpl"/>
   
+  <p:documentation>Will select schemas for the given namespace from NVDL, or, if Schematron is supplied
+    instead of NVDL, will use this Schematron. In both cases, the schematron is expected to be assembled
+    already (sbf:extends are expanded), and in the case of NVDL the expanded Schematron schema is included 
+    below nvdl:namespace/nvdl:validate.
+    Although this step is called schematron-for-namespace, it is planned that additional schema validations,
+    before or after the fixes have been applied, can be performed. These future validations may be either 
+    specified by additional nvdl:validate instructions or by acting on the document’s DOCTYPE, xsi attributes, 
+    or xml-model PIs, pre- and/or post-fix.</p:documentation>
+  
   <p:input port="schema">
     <p:documentation>An expanded NVDL schema that associates Schematron validations with namespace URIs. 
       Alternatively, an assembled Schematron schema.</p:documentation>
@@ -25,15 +34,17 @@
     <p:documentation>Zip Manifest or other XML file for which Schematron checks exist.</p:documentation>
   </p:input>
   <p:input port="contents" sequence="true">
-    <p:documentation>If the input to invoking validation pipeline was a zip, this port has its contents
+    <p:documentation>If the input to the invoking validation pipeline was a zip, this port has its contents
     with base-uri document properties that match c:entry/@href in the manifest.</p:documentation>
   </p:input>
   
   <p:output port="result" primary="true" pipe="result@validate-if-schematron-exists-for-namespace">
-    <p:documentation>The updated zip manifest or XML file that appeared on source.</p:documentation>
+    <p:documentation>The updated zip manifest or XML file that appeared on the source port. Updated:
+    after fixes have been applied.</p:documentation>
   </p:output>
   <p:output port="result-contents" sequence="true" pipe="result-contents@process-contents"/>
-  <p:output port="report" pipe="report@validate-if-schematron-exists-for-namespace report@process-contents" sequence="true"/>
+  <p:output port="report" sequence="true"
+            pipe="report@validate-if-schematron-exists-for-namespace report@process-contents"/>
   
   <p:option name="debug-dir-uri" select="''"/>
   <p:option name="debug" select="'no'"/>
@@ -69,6 +80,7 @@
   <p:count name="zero-or-one-schematron"/>
 
   <p:choose name="validate-if-schematron-exists-for-namespace">
+    <p:documentation>Validate, fix and re-validate zip manifest, XML zip content file, or standalone XML input.</p:documentation>
     <p:when test="/c:result = '0'">
       <p:documentation>No Schematron for namespace. Return a c:ok document on the report port 
         and the source port unchanged on the result port.</p:documentation>
@@ -82,19 +94,20 @@
       </p:identity>
     </p:when>
     <p:otherwise>
-      <p:output port="report" pipe="result@set-svrl-base-uri"/>
+      <p:output port="report" pipe="result@add-doc-uri-to-reports"/>
       <p:output port="result" primary="true" pipe="result@apply-fixes"/>
       <p:output port="result-contents" pipe="result-contents@apply-fixes" sequence="true"/>
       <sbf:add-srcpaths name="add-srcpaths">
         <p:with-input pipe="source@schematron-for-namespace"/>
       </sbf:add-srcpaths>
-      <p:variable name="base-uri" as="xs:string?" select="p:document-property(., 'base-uri')"/>
+      <p:variable name="base-uri" as="xs:string?" select="p:urify(p:document-property(., 'base-uri'))"/>
       <p:variable name="params" as="map(*)*" pipe="params@schematron-from-nvdl-or-standalone" 
-        select="collection()" collection="true"/> 
+        select="collection()" collection="true"/>
+      <p:variable name="consolidated-params" as="map(*)*" 
+        select="map:merge((map{xs:QName('allow-foreign'): 'true'}, $params), map{'duplicates': 'combine'})"/>
       <tr:oxy-validate-with-schematron name="validate-with-schematron" p:message="val base uri: {$base-uri}, name:
         {/*/name()}">
-        <p:with-option name="parameters" 
-          select="map:merge((map{xs:QName('allow-foreign'): 'true'}, $params), map{'duplicates': 'combine'})"/>
+        <p:with-option name="parameters" select="$consolidated-params"/>
         <p:with-input port="schema" pipe="result@schematron-from-nvdl-or-standalone"/>
       </tr:oxy-validate-with-schematron>
       <p:identity name="svrl-into-focus"><p:with-input pipe="report@validate-with-schematron"/></p:identity>
@@ -107,35 +120,34 @@
       <sbf:fixes-list debug="{$debug}" debug-dir-uri="{$debug-dir-uri}" name="fixes-list">
         <p:with-input port="schema" pipe="result@schematron-from-nvdl-or-standalone"/>
       </sbf:fixes-list>
-      <p:identity message="SFNTOP {/*/name()}">
-        <p:with-input pipe="contents@schematron-for-namespace"></p:with-input>
-      </p:identity>
-      
-      <p:count/>
-      
-      <p:identity message="SFNSIZE {.}">
-        <p:with-input pipe="result@fixes-list"></p:with-input>
-      </p:identity>
-      
+
       <sbf:apply-fixes name="apply-fixes">
         <p:with-input port="source" pipe="result@add-srcpaths"/>
         <p:with-input port="contents" pipe="contents@schematron-for-namespace"/>
       </sbf:apply-fixes>
       
-      <p:count>
-        <p:with-input port="source" pipe="result-contents@apply-fixes"/>
-      </p:count>
-      
-      <p:identity message="SFNSIZE-after {.}">
-      </p:identity>
-      <!--<tr:oxy-validate-with-schematron name="validate-with-schematron_pass2">
-        <p:with-option name="parameters" select="map{xs:QName('allow-foreign'): 'true'}"/>
+      <tr:oxy-validate-with-schematron name="validate-with-schematron_pass2">
+        <p:with-option name="parameters" select="$consolidated-params"/>
         <p:with-input port="schema" pipe="result@schematron-from-nvdl-or-standalone"/>
-      </tr:oxy-validate-with-schematron>-->
+      </tr:oxy-validate-with-schematron>
+      <p:identity name="svrlpass2-into-focus"><p:with-input pipe="report@validate-with-schematron_pass2"/></p:identity>
+      <p:set-properties name="set-svrl-base-uri_pass2">
+        <p:with-option name="properties" select="map{xs:QName('base-uri'): ($base-uri || '.fixed.val')}"/>
+      </p:set-properties>
+      <tr:store-debug name="store-svrl_pass2" active="{$debug}" base-uri="{$debug-dir-uri}"
+        pipeline-step="schematron_pass2/{$base-uri => replace('^.+/', '')}.fixed.svrl"/>
+      
+      <p:wrap-sequence name="wrap-reports" wrapper="sbf:single-doc-reports">
+        <p:with-input pipe="result@set-svrl-base-uri result@set-svrl-base-uri_pass2"/>
+      </p:wrap-sequence>
+      
+      <p:add-attribute attribute-name="doc-uri" attribute-value="{$base-uri}" name="add-doc-uri-to-reports"/>
     </p:otherwise>
   </p:choose>
 
   <p:choose name="process-contents">
+    <p:documentation>If the previous validation/fix/validation steps operated on a zip manifest, process
+      each of the XML content files in the zip with this sbf:schematron-for-namespace step recursively.</p:documentation>
     <p:when test="$namespace-uri = 'http://www.w3.org/ns/xproc-step' and $local-name = 'archive'">
       <p:output port="report" sequence="true" pipe="report@process-xml-entries"/>
       <p:output port="result-contents" primary="true" sequence="true">
@@ -143,17 +155,23 @@
           files were renamed for the output zip, the base-uri property will stay the same. The renaming only occurs 
         in the c:entry/@name attribute of the archive manifest.</p:documentation>
       </p:output>
-      <p:for-each name="process-xml-entries">
+      <p:variable name="normalized-xml-uris" as="xs:string*" 
+        select="/c:archive/c:entry[@namespace-uri]/@href ! p:urify(.)"/>
+      <p:identity>
+        <p:with-input pipe="result-contents@validate-if-schematron-exists-for-namespace"/>
+      </p:identity>
+      <p:count/>
+      <p:for-each name="process-xml-entries" message="here!!!! {.}">
         <p:with-input pipe="result-contents@validate-if-schematron-exists-for-namespace"/>
         <p:output port="report" pipe="report@is-xml" sequence="true"/>
         <p:output port="result" primary="true"/>
-        <p:variable name="base-uri" as="xs:string" select="p:document-property(., 'base-uri')"/>
-        <p:variable name="is-xml" as="xs:boolean" select="$base-uri = /c:archive/c:entry[@namespace-uri]/@href"/>
-        <p:choose name="is-xml">
+        <p:variable name="base-uri" as="xs:string" select="p:urify(p:document-property(., 'base-uri'))"/>
+        <p:variable name="is-xml" as="xs:boolean" select="$base-uri = $normalized-xml-uris"/>
+        <p:choose name="is-xml" message="is xml? {$is-xml} {$base-uri}">
           <p:when test="$is-xml">
             <p:output port="report" pipe="report@recursive-schematron-for-namespace"/>
             <p:output port="result" primary="true"/>
-            <sbf:schematron-for-namespace name="recursive-schematron-for-namespace">
+            <sbf:schematron-for-namespace name="recursive-schematron-for-namespace" p:message="call for contained XML">
               <p:with-input port="schema" pipe="schema@schematron-for-namespace"/>
               <p:with-input port="contents">
                 <p:empty/>
