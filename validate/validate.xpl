@@ -33,7 +33,7 @@
     </p:documentation>
   </p:input>
   <p:input port="svrl2html" href="svrl2html.xsl"/>
-
+  
   <p:option name="input-uri" as="xs:string?" required="false">
     <p:documentation>Alternative way for specifying the file to be validated. Will only be used if there
     are zero documents on the 'source' port.</p:documentation>
@@ -53,6 +53,8 @@
   <p:output port="report" sequence="true" pipe="report@input-files"/>
   <p:output port="result-contents" sequence="true" pipe="result-contents@input-files"/>
   <p:output port="htmlreport" pipe="result@svrl2html" 
+    serialization="map{'method': 'xhtml', 'use-character-maps': map {'&gt;': '>'}}"/>
+  <p:output port="rendering" pipe="rendering@input-files" sequence="true" 
     serialization="map{'method': 'xhtml', 'use-character-maps': map {'&gt;': '>'}}"/>
   
   <p:option name="keep-srcpath" select="'pi_changed'">
@@ -137,7 +139,8 @@
     <p:output port="result" primary="true"/>
     <p:output port="report" pipe="report@schematron-for-namespace" sequence="true"/>
     <p:output port="result-contents" pipe="result-contents@schematron-for-namespace" sequence="true"/>
-
+    <p:output port="rendering" pipe="rendering@schematron-for-namespace" sequence="true"/>
+    
     <p:variable name="is-zip" select="p:document-property(., 'content-type') = 'application/zip'" as="xs:boolean"/>
 
     <p:choose name="zip-or-xml">
@@ -167,6 +170,7 @@
       <p:when test="$is-zip">
         <p:output port="result" primary="true"/>
         <p:delete match="@name-old | @cx:* | c:entry/*" name="delete-unsupported-manifest-attributes"/>
+        <tr:store-debug pipeline-step="repackage-manifest" active="{$debug}" base-uri="{$debug-dir-uri}"/>
         <p:archive name="repackage">
           <p:with-input port="source" pipe="result-contents@schematron-for-namespace"/>
           <p:with-input port="manifest" pipe="result@delete-unsupported-manifest-attributes"/>
@@ -180,7 +184,7 @@
         <p:identity/>
       </p:otherwise>
     </p:choose>
-  </p:for-each>  
+  </p:for-each>
 
   <p:identity name="reports-into-focus"><p:with-input pipe="report@input-files"/></p:identity>
   <tr:store-debug pipeline-step="reports" active="{$debug}" base-uri="{$debug-dir-uri}"/>

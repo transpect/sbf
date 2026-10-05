@@ -13,9 +13,11 @@
 
   <p:import href="http://transpect.io/schematron/xpl/oxy-schematron.xpl"/>
   <p:import href="http://transpect.io/xproc-util/store-debug/xpl/store-debug.xpl"/>
+  <p:import href="http://transpect.io/xproc-util/data-uri/xpl/archive-data-uri-map.xpl"/>
   <p:import href="add-srcpaths.xpl"/>
   <p:import href="fixes-list.xpl"/>
   <p:import href="apply-fixes.xpl"/>
+  <p:import href="../render/render.xpl"/>
   
   <p:documentation>Will select schemas for the given namespace from NVDL, or, if Schematron is supplied
     instead of NVDL, will use this Schematron. In both cases, the schematron is expected to be assembled
@@ -31,11 +33,26 @@
       Alternatively, an assembled Schematron schema.</p:documentation>
   </p:input>
   <p:input port="source" primary="true">
-    <p:documentation>Zip Manifest or other XML file for which Schematron checks exist.</p:documentation>
+    <p:documentation>Zip Manifest or other XML file for which Schematron checks exist. 
+      Since a manifest will be processed before XML files in an archive, fixes that apply to the manifest 
+      will be carried out first. 
+      Each fixed XML file may optionally be rendered by sbf:render. Since these XML renderings receive 
+      the updated (fixed) manifest and contents ports after the manifest fixes, all fixes to the contents,
+      for example image conversions, should run as XProc fixes on the manifest (possibly enriched with image
+      resolution, colorspace etc. info), not on the individual content items.
+    </p:documentation>
   </p:input>
   <p:input port="contents" sequence="true">
     <p:documentation>If the input to the invoking validation pipeline was a zip, this port has its contents
     with base-uri document properties that match c:entry/@href in the manifest.</p:documentation>
+  </p:input>
+  <p:input port="archive-data-uri-map" content-types="application/json">
+    <p:documentation>Will be initially empty when processing an archive manifest. After the fixes are applied
+      to the archive manifest and the contents, archive-data-uri-map will be computed from the fixed manifest
+      and contents. This map document will then be passed to the recursive sbf:schematron-for-namespace invocations
+      on the XML files so that their rendering pipelines can use the data URIs. 
+    </p:documentation>
+    <p:inline content-type="application/json" expand-text="false">{}</p:inline>
   </p:input>
   
   <p:output port="result" primary="true" pipe="result@validate-if-schematron-exists-for-namespace">
@@ -44,7 +61,9 @@
   </p:output>
   <p:output port="result-contents" sequence="true" pipe="result-contents@process-contents"/>
   <p:output port="report" sequence="true"
-            pipe="report@validate-if-schematron-exists-for-namespace report@process-contents"/>
+            pipe="report@validate-if-schematron-exists-for-namespace"/>
+  <p:output port="rendering" sequence="true"
+    pipe="rendering@validate-if-schematron-exists-for-namespace rendering@process-contents"/>
   
   <p:option name="debug-dir-uri" select="''"/>
   <p:option name="debug" select="'no'"/>
@@ -88,6 +107,8 @@
         <p:inline><c:ok reason="no-schematron-for-namespace"/></p:inline>
       </p:output>
       <p:output port="result-contents" pipe="contents@schematron-for-namespace" sequence="true"/>
+      <p:output port="result-archive-data-uri-map" pipe="archive-data-uri-map@schematron-for-namespace"
+                content-types="application/json"/>
       <p:output port="result" primary="true"/>
       <p:identity>
         <p:with-input pipe="source@schematron-for-namespace"/>
@@ -95,8 +116,11 @@
     </p:when>
     <p:otherwise>
       <p:output port="report" pipe="result@add-doc-uri-to-reports"/>
-      <p:output port="result" primary="true" pipe="result@apply-fixes"/>
+      <p:output port="result" primary="true" pipe="result@remove-srcpath-in-fixed-doc"/>
       <p:output port="result-contents" pipe="result-contents@apply-fixes" sequence="true"/>
+      <p:output port="result-archive-data-uri-map" pipe="result@conditionally-compute-archive-data-uri-map" 
+                content-types="application/json"/>
+      <p:output port="rendering" pipe="result@render" sequence="true" content-types="any"/>
       <sbf:add-srcpaths name="add-srcpaths">
         <p:with-input pipe="source@schematron-for-namespace"/>
       </sbf:add-srcpaths>
@@ -105,8 +129,8 @@
         select="collection()" collection="true"/>
       <p:variable name="consolidated-params" as="map(*)*" 
         select="map:merge((map{xs:QName('allow-foreign'): 'true'}, $params), map{'duplicates': 'combine'})"/>
-      <tr:oxy-validate-with-schematron name="validate-with-schematron" p:message="val base uri: {$base-uri}, name:
-        {/*/name()}">
+      <tr:oxy-validate-with-schematron name="validate-with-schematron" 
+        p:message="Schematron validation base URI: {$base-uri}, top-level element name: {/*/name()}">
         <p:with-option name="parameters" select="$consolidated-params"/>
         <p:with-input port="schema" pipe="result@schematron-from-nvdl-or-standalone"/>
       </tr:oxy-validate-with-schematron>
@@ -142,6 +166,34 @@
       </p:wrap-sequence>
       
       <p:add-attribute attribute-name="doc-uri" attribute-value="{$base-uri}" name="add-doc-uri-to-reports"/>
+      
+      <p:identity name="fixed-doc-into-focus"><p:with-input pipe="result@apply-fixes"/></p:identity>
+      <p:delete match="@srcpath" name="remove-srcpath-in-fixed-doc"/>
+
+      <p:choose name="conditionally-compute-archive-data-uri-map">
+        <p:when test="exists(/c:archive)">
+          <p:output port="result" content-types="application/json"/>
+          <p:identity name="fixed-contents-into-focus"><p:with-input pipe="result-contents@apply-fixes"/></p:identity>
+          <tr:archive-data-uri-map name="archive-data-uri-map">
+            <p:with-input port="manifest" pipe="result@remove-srcpath-in-fixed-doc"></p:with-input>
+          </tr:archive-data-uri-map>
+        </p:when>
+        <p:otherwise>
+          <p:output port="result" content-types="application/json"/>
+          <p:identity><p:with-input pipe="archive-data-uri-map@schematron-for-namespace"/></p:identity>
+        </p:otherwise>
+      </p:choose>
+
+      <p:identity name="fixed-doc-into-focus-again"><p:with-input pipe="result@remove-srcpath-in-fixed-doc"/></p:identity>
+      
+      <sbf:render name="render">
+        <p:with-input port="schema" pipe="schema@schematron-for-namespace">
+          <p:documentation>The rendering pipeline (XProc) may be specified in
+            /nvdl:rules/nvdl:namespace/sbf:rendering-pipeline/@href</p:documentation>
+        </p:with-input>
+        <p:with-input port="archive-data-uri-map" pipe="result@conditionally-compute-archive-data-uri-map"/>
+      </sbf:render>
+      <p:count/>
     </p:otherwise>
   </p:choose>
 
@@ -155,27 +207,31 @@
           files were renamed for the output zip, the base-uri property will stay the same. The renaming only occurs 
         in the c:entry/@name attribute of the archive manifest.</p:documentation>
       </p:output>
+      <p:output port="rendering" sequence="true" content-types="any" pipe="rendering@process-xml-entries"/>
       <p:variable name="normalized-xml-uris" as="xs:string*" 
         select="/c:archive/c:entry[@namespace-uri]/@href ! p:urify(.)"/>
-      <p:identity>
-        <p:with-input pipe="result-contents@validate-if-schematron-exists-for-namespace"/>
-      </p:identity>
-      <p:count/>
-      <p:for-each name="process-xml-entries" message="here!!!! {.}">
+      
+      <p:for-each name="process-xml-entries">
         <p:with-input pipe="result-contents@validate-if-schematron-exists-for-namespace"/>
         <p:output port="report" pipe="report@is-xml" sequence="true"/>
         <p:output port="result" primary="true"/>
+        <p:output port="rendering" sequence="true" content-types="any" pipe="rendering@is-xml"/>
         <p:variable name="base-uri" as="xs:string" select="p:urify(p:document-property(., 'base-uri'))"/>
         <p:variable name="is-xml" as="xs:boolean" select="$base-uri = $normalized-xml-uris"/>
-        <p:choose name="is-xml" message="is xml? {$is-xml} {$base-uri}">
+        <p:choose name="is-xml">
           <p:when test="$is-xml">
             <p:output port="report" pipe="report@recursive-schematron-for-namespace"/>
             <p:output port="result" primary="true"/>
-            <sbf:schematron-for-namespace name="recursive-schematron-for-namespace" p:message="call for contained XML">
+            <p:output port="rendering" sequence="true" content-types="any" pipe="rendering@recursive-schematron-for-namespace"/>
+            <p:identity name="current-into-focus-again"><p:with-input pipe="current@process-xml-entries"/></p:identity>
+            <sbf:schematron-for-namespace name="recursive-schematron-for-namespace">
               <p:with-input port="schema" pipe="schema@schematron-for-namespace"/>
-              <p:with-input port="contents">
-                <p:empty/>
+              <p:with-input port="contents"><p:empty/>
+                <!--<p:documentation>The complete (fixed) contents port needs to be passed to each step because an XML
+                rendering pipeline may ask for data URIs for embedded images and the like.</p:documentation>-->
               </p:with-input>
+              <p:with-input port="archive-data-uri-map" 
+                pipe="result-archive-data-uri-map@validate-if-schematron-exists-for-namespace"/>
               <p:with-option name="debug" select="$debug"/>
               <p:with-option name="debug-dir-uri" select="$debug-dir-uri"/>
             </sbf:schematron-for-namespace>
@@ -183,6 +239,9 @@
           <p:otherwise>
             <p:output port="result" primary="true"/>
             <p:output port="report" sequence="true">
+              <p:empty/>
+            </p:output>
+            <p:output port="rendering" sequence="true">
               <p:empty/>
             </p:output>
             <p:identity/>

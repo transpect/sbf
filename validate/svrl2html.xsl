@@ -49,7 +49,6 @@
         <xsl:variable name="msgs" as="element(*)*" 
                       select="$original-report/*/(svrl:failed-assert | svrl:successful-report) 
          (: | $original-reports//c:error:)"/>
-        <xsl:message select="'CCCCCCCCCCCCCc ' || count($msgs) "/>
         <tr id="file{format-number(position(), '0000')}" class="sep">
           <th colspan="5">
             <!--<xsl:value-of select="substring-after(replace(current-grouping-key(), '//+', '/'), 
@@ -275,9 +274,6 @@
               </xsl:for-each>
             </ul>
           </nav>
-          <!--<div class="temp">
-            <xsl:sequence select="$content"/>
-          </div>-->
           <div class="content">
             <xsl:choose>
               <xsl:when test="$group-by-error-code">

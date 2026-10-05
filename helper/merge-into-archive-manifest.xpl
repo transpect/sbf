@@ -26,7 +26,7 @@
   
   <p:viewport match="c:entry[@content-type = 'application/xml' or ends-with(@content-type, '+xml')]" name="manifest-vp">
     <p:variable name="entry-href" as="xs:string" select="/c:entry/@href"/>
-    <p:identity message="entry-href: {$entry-href}"></p:identity>
+    <p:identity message="entry-href: {$entry-href}, base-uri: {base-uri(.)}, urified-base-uri: {p:urify(base-uri(.))}"></p:identity>
     <p:split-sequence name="select-current-entry-xml" initial-only="true"
       test="p:urify(base-uri(.)) = '{$entry-href}'">
       <p:with-input pipe="insertions@merge-into-archive-manifest"/>
