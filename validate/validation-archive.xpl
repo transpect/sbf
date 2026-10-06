@@ -39,8 +39,8 @@
     'pi_always': keep them as processing instructions, 'pi_changed': only keep them if the current path differs,
     'yes': keep them</p:documentation>
   </p:option>
-  <p:option name="debug-dir-uri" select="''"/>
-  <p:option name="debug" select="'no'"/>
+  <p:option name="debug-dir-uri" as="xs:string" select="''"/>
+  <p:option name="debug" as="xs:string" select="'no'"/>
   
   <sbf:batch-val name="validate" debug="{$debug}" debug-dir-uri="{$debug-dir-uri}">
     <p:with-option name="input-uri" select="$input-uri"/>
@@ -88,9 +88,32 @@
   
   <p:identity message="ADJUSTED OUTPUT BASE URI: {p:document-property(., 'base-uri')}"/>
   
+  <p:choose name="conditionally-create-debug-zip">
+    <p:when test="$debug = 'yes' and normalize-space($debug-dir-uri)">
+      <p:output port="result" sequence="true" primary="true"/>
+      <p:documentation>Make sure that each invocation create its own debug dir, or remove the directory prior 
+      to invocation if no concurrent conversions run.</p:documentation>
+      <p:directory-list path="{$debug-dir-uri}" max-depth="unbounded"/>
+      <p:for-each>
+        <p:with-input select="//c:file"/>
+        <p:load href="{resolve-uri(/*/@name, base-uri(.))}" message="LOAD {resolve-uri(/*/@name, base-uri(.))}"/>
+      </p:for-each>
+      <p:archive name="create-debug-zip" relative-to="{$debug-dir-uri}"/>
+    </p:when>
+    <p:otherwise>
+      <p:output port="result" sequence="true" primary="true"/>
+      <p:identity><p:with-input><p:empty/></p:with-input></p:identity>
+    </p:otherwise>
+  </p:choose>
+  
+  <p:set-properties name="set-debug-zip-uri">
+    <p:with-option name="properties" select="map{xs:QName('base-uri'): $base-dir-uri-for-zips || 'debug.zip'}"/>
+  </p:set-properties>
+  
   <p:archive name="create-output-zip" relative-to="{$input-base-uri}" message="relative-to: {$input-base-uri}">
     <p:with-input port="source" 
-      pipe="input@conditionally-adjust-uris result@conditionally-adjust-uris htmlreport@conditionally-adjust-uris rendering@validate"/>
+      pipe="input@conditionally-adjust-uris result@conditionally-adjust-uris htmlreport@conditionally-adjust-uris 
+      rendering@validate result@set-debug-zip-uri"/>
   </p:archive>
 
 </p:declare-step>
