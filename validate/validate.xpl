@@ -46,9 +46,11 @@
     <p:pipe port="result" step="html2shortreport"/>
   </p:output>-->
 
-  <p:output port="result" primary="true" pipe="result@input-files">
-    <p:documentation>Always a Zip? Currently, it is a repackaged zip or the fixed XML. But we also want
-    a zip that contains the fixed input plus the reports (and maybe also the original input).</p:documentation>
+  <p:output port="result" primary="true" pipe="result@set-output-base-uri">
+    <p:documentation>A repackaged zip with the fixed files. If the input was XML, the fixed XML.</p:documentation>
+  </p:output>
+  <p:output port="input" pipe="result@input">
+    <p:documentation>The original input, zip or XML.</p:documentation>
   </p:output>
   <p:output port="report" sequence="true" pipe="report@input-files"/>
   <p:output port="result-contents" sequence="true" pipe="result-contents@input-files"/>
@@ -134,7 +136,9 @@
     </p:otherwise>
     <p:documentation>need to deal with $input-uri that points to a directory (for example, create a zip from it)</p:documentation>
   </p:choose>
-    
+
+  <p:identity name="input"/>
+
   <p:for-each name="input-files">
     <p:output port="result" primary="true"/>
     <p:output port="report" pipe="report@schematron-for-namespace" sequence="true"/>
@@ -185,11 +189,20 @@
       </p:otherwise>
     </p:choose>
   </p:for-each>
+  
+  <p:set-properties name="set-output-base-uri">
+    <p:with-option name="properties" pipe="result@input"
+      select="map{xs:QName('base-uri'): p:document-property(., 'base-uri') => replace('(\.[^.]+)$', '.fixed$1')}"/>
+  </p:set-properties>
 
-  <p:identity name="reports-into-focus"><p:with-input pipe="report@input-files"/></p:identity>
+  <p:variable name="htmlreport-base-uri" as="xs:string" pipe="result@input" 
+    select="p:document-property(., 'base-uri') => replace('(\.[^.]+)$', '.report.xhtml')"/>
+
+  <p:identity name="reports-into-focus" message="OUTPUT BASE URI: {p:document-property(., 'base-uri')}
+    HTMLREPORT BASE URI: {$htmlreport-base-uri}"><p:with-input pipe="report@input-files"/></p:identity>
   <tr:store-debug pipeline-step="reports" active="{$debug}" base-uri="{$debug-dir-uri}"/>
 
-  <p:xslt name="svrl2html" template-name="main">
+  <p:xslt name="svrl2html" template-name="main" output-base-uri="{$htmlreport-base-uri}">
     <p:with-input port="stylesheet" pipe="svrl2html@batch-val"/>
   </p:xslt>
 </p:declare-step>

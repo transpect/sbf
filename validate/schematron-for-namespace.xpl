@@ -193,10 +193,18 @@
         </p:with-input>
         <p:with-input port="archive-data-uri-map" pipe="result@conditionally-compute-archive-data-uri-map"/>
       </sbf:render>
-      <p:count/>
+      <p:count />
+      <p:choose>
+        <p:when test=". = '0'">
+          <p:identity/>
+        </p:when>
+        <p:otherwise>
+          <p:identity message="HTML rendering base uri: {p:document-property(., 'base-uri')}"/>
+        </p:otherwise>
+      </p:choose>
     </p:otherwise>
   </p:choose>
-
+  
   <p:choose name="process-contents">
     <p:documentation>If the previous validation/fix/validation steps operated on a zip manifest, process
       each of the XML content files in the zip with this sbf:schematron-for-namespace step recursively.</p:documentation>
