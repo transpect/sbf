@@ -9,6 +9,8 @@
   <xsl:key name="by-id" match="*[@id]" use="@id"/>
   <xsl:key name="by-test-id" match="*[@test-id]" use="@test-id"/>
   
+  <xsl:mode name="pos" on-no-match="shallow-copy"/>
+  
   <xsl:variable name="svrl-doc" as="document-node(element(svrl:schematron-output))" 
     select="collection()[svrl:schematron-output]"/>
   
@@ -29,18 +31,29 @@
     </xsl:apply-templates>
   </xsl:template>
   
+  <xsl:template match="/sbf:fixes-list/*/@*[1]" mode="pos">
+    <xsl:attribute name="pos" select="index-of(../../sbf:* ! generate-id(.), generate-id(..))"/>
+    <xsl:next-match/>
+  </xsl:template>
+  
+  
   <xsl:template match="/svrl:schematron-output">
     <xsl:param name="schematron" tunnel="yes" as="document-node(element(sch:schema))"/>
     <xsl:param name="svrl-ids" as="xs:string*" tunnel="yes"/>
     <xsl:variable name="svrl" as="document-node()" select=".."/>
-    <sbf:fixes-list>
-      <xsl:attribute name="xml:base" select="$svrl ! base-uri(.) ! replace(., '\.val$', '.fixes-list')"/>
-      <xsl:for-each-group select="$svrl-ids ! key('by-test-id', ., $svrl)[1] 
-                                            ! sbf:prepend-prerequisites(., $svrl, $schematron)" 
-                          group-by="sbf:fix-usage-signature(.)">
-        <xsl:apply-templates select="."/>
-      </xsl:for-each-group>
-    </sbf:fixes-list>
+    <xsl:variable name="prelim" as="document-node(element(sbf:fixes-list))">
+      <xsl:document>
+        <sbf:fixes-list>
+          <xsl:attribute name="xml:base" select="$svrl ! base-uri(.) ! replace(., '\.val$', '.fixes-list')"/>
+          <xsl:for-each-group select="$svrl-ids ! key('by-test-id', ., $svrl)[1] 
+                                                ! sbf:prepend-prerequisites(., $svrl, $schematron)" 
+                              group-by="sbf:fix-usage-signature(.)">
+            <xsl:apply-templates select="."/>
+          </xsl:for-each-group>
+        </sbf:fixes-list>
+      </xsl:document>
+    </xsl:variable>
+    <xsl:apply-templates select="$prelim" mode="pos"/>
   </xsl:template>
   
   <xsl:function name="sbf:prepend-prerequisites" as="element(*)*">

@@ -86,17 +86,15 @@
     </p:otherwise>
   </p:choose>
   
-  <p:identity message="ADJUSTED OUTPUT BASE URI: {p:document-property(., 'base-uri')}"/>
-  
   <p:choose name="conditionally-create-debug-zip">
     <p:when test="$debug = 'yes' and normalize-space($debug-dir-uri)">
       <p:output port="result" sequence="true" primary="true"/>
-      <p:documentation>Make sure that each invocation create its own debug dir, or remove the directory prior 
-      to invocation if no concurrent conversions run.</p:documentation>
+      <p:documentation>Advice to users: Make sure that each invocation create its own debug dir, or remove the directory 
+        prior to invocation if no concurrent conversions run.</p:documentation>
       <p:directory-list path="{$debug-dir-uri}" max-depth="unbounded"/>
       <p:for-each>
         <p:with-input select="//c:file"/>
-        <p:load href="{resolve-uri(/*/@name, base-uri(.))}" message="LOAD {resolve-uri(/*/@name, base-uri(.))}"/>
+        <p:load href="{resolve-uri(/*/@name, base-uri(.))}"/>
       </p:for-each>
       <p:archive name="create-debug-zip" relative-to="{$debug-dir-uri}"/>
     </p:when>

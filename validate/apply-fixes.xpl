@@ -40,7 +40,7 @@
     <p:with-input select="/sbf:fixes-list/*[1]"/>
     <p:output port="result" primary="true"/>
     <p:output port="result-contents" sequence="true" pipe="result-contents@xsl-or-xproc"/>
-    <p:variable name="iteration-position" select="p:iteration-position()"/>
+    <p:variable name="iteration-position" select="/*/@pos"/>
     <p:choose name="xsl-or-xproc">
       <p:when test="exists(/sbf:xsl-fix)">
         <p:output port="result" primary="true"/>
