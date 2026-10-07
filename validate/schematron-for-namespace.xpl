@@ -60,8 +60,8 @@
     after fixes have been applied.</p:documentation>
   </p:output>
   <p:output port="result-contents" sequence="true" pipe="result-contents@process-contents"/>
-  <p:output port="report" sequence="true"
-            pipe="report@validate-if-schematron-exists-for-namespace"/>
+  <p:output port="report" sequence="true" 
+    pipe="report@validate-if-schematron-exists-for-namespace report@process-contents"/>
   <p:output port="rendering" sequence="true"
     pipe="rendering@validate-if-schematron-exists-for-namespace rendering@process-contents"/>
   
@@ -193,15 +193,6 @@
         </p:with-input>
         <p:with-input port="archive-data-uri-map" pipe="result@conditionally-compute-archive-data-uri-map"/>
       </sbf:render>
-      <p:count />
-      <p:choose>
-        <p:when test=". = '0'">
-          <p:identity/>
-        </p:when>
-        <p:otherwise>
-          <p:identity message="HTML rendering base uri: {p:document-property(., 'base-uri')}"/>
-        </p:otherwise>
-      </p:choose>
     </p:otherwise>
   </p:choose>
   

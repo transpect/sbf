@@ -54,7 +54,7 @@
   </p:output>
   <p:output port="report" sequence="true" pipe="report@input-files"/>
   <p:output port="result-contents" sequence="true" pipe="result-contents@input-files"/>
-  <p:output port="htmlreport" pipe="result@svrl2html" 
+  <p:output port="htmlreport" pipe="result@htmlreport-set-properties" 
     serialization="map{'method': 'xhtml', 'use-character-maps': map {'&gt;': '>'}}"/>
   <p:output port="rendering" pipe="rendering@input-files" sequence="true" 
     serialization="map{'method': 'xhtml', 'use-character-maps': map {'&gt;': '>'}}"/>
@@ -198,11 +198,13 @@
   <p:variable name="htmlreport-base-uri" as="xs:string" pipe="result@input" 
     select="p:document-property(., 'base-uri') => replace('(\.[^.]+)$', '.report.xhtml')"/>
 
-  <p:identity name="reports-into-focus" message="OUTPUT BASE URI: {p:document-property(., 'base-uri')}
-    HTMLREPORT BASE URI: {$htmlreport-base-uri}"><p:with-input pipe="report@input-files"/></p:identity>
+  <p:identity name="reports-into-focus"><p:with-input pipe="report@input-files"/></p:identity>
   <tr:store-debug pipeline-step="reports" active="{$debug}" base-uri="{$debug-dir-uri}"/>
 
   <p:xslt name="svrl2html" template-name="main" output-base-uri="{$htmlreport-base-uri}">
     <p:with-input port="stylesheet" pipe="svrl2html@batch-val"/>
   </p:xslt>
+  <p:set-properties name="htmlreport-set-properties">
+    <p:with-option name="properties" select="map{'serialization': map{'method': 'xhtml', 'html-version': '5'}}"/>
+  </p:set-properties>
 </p:declare-step>

@@ -108,10 +108,9 @@
     <p:with-option name="properties" select="map{xs:QName('base-uri'): $base-dir-uri-for-zips || 'debug.zip'}"/>
   </p:set-properties>
   
-  <p:archive name="create-output-zip" relative-to="{$input-base-uri}" message="relative-to: {$input-base-uri}">
-    <p:with-input port="source" 
-      pipe="input@conditionally-adjust-uris result@conditionally-adjust-uris htmlreport@conditionally-adjust-uris 
-      rendering@validate result@set-debug-zip-uri"/>
+  <p:archive name="create-output-zip" relative-to="{$input-base-uri}">
+    <p:with-input port="source" pipe="input@conditionally-adjust-uris result@conditionally-adjust-uris 
+      htmlreport@conditionally-adjust-uris rendering@validate result@set-debug-zip-uri"/>
   </p:archive>
 
 </p:declare-step>

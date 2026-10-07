@@ -53,7 +53,7 @@
               /sbf:rendering-pipeline[empty(@local-names)
                                       or tokenize(@local-names) = $local-name]"/>
 
-  <p:choose name="pipeline-from-nvdl" message="render.xpl spec count: {count($pipeline-spec)}">
+  <p:choose name="pipeline-from-nvdl">
     <p:when test="exists(/nvdl:rules)">
       <p:output port="result" sequence="true" primary="true"/>
       <p:output port="params" sequence="true" pipe="params@load-pipeline" content-types="application/json"/>
@@ -101,7 +101,6 @@
         <p:run-option name="parameters" as="map(*)?" select="$parameters"/>
         <p:output port="result" primary="true" sequence="true" content-types="any"/>
       </p:run>
-      <p:identity message="HTML rendering base URI: {p:document-property(., 'base-uri')}"/>
     </p:when>
     <p:otherwise>
       <p:output port="result" primary="true" sequence="true"/>
