@@ -29,7 +29,7 @@
     <p:pipe port="result" step="html2shortreport"/>
   </p:output>-->
 
-  <p:output port="result" primary="true" content-types="application/zip">
+  <p:output port="result" primary="true" content-types="application/zip" pipe="result@create-output-zip">
     <p:documentation>A zip that contains the fixed input plus the reports, an optional HTML rendering 
       and also the original input.</p:documentation>
   </p:output>
@@ -39,11 +39,14 @@
     'pi_always': keep them as processing instructions, 'pi_changed': only keep them if the current path differs,
     'yes': keep them</p:documentation>
   </p:option>
-  <p:option name="debug-dir-uri" as="xs:string" select="''"/>
+  <p:option name="debug-dir" as="xs:string?"/>
   <p:option name="debug" as="xs:string" select="'no'"/>
   
-  <sbf:batch-val name="validate" debug="{$debug}" debug-dir-uri="{$debug-dir-uri}">
+  <p:variable name="debug-dir-uri" select="$debug-dir ! p:urify(.)"/>
+  
+  <sbf:batch-val name="validate" debug="{$debug}" debug-dir="{$debug-dir-uri}">
     <p:with-option name="input-uri" select="$input-uri"/>
+    <p:with-option name="output-dir" select="()"/>
     <p:with-input port="schema" pipe="schema@val-zip"/>
     <p:with-input port="source" pipe="source@val-zip"/>
     <p:with-input port="svrl2html" pipe="svrl2html@val-zip"/>
@@ -97,6 +100,10 @@
         <p:load href="{resolve-uri(/*/@name, base-uri(.))}"/>
       </p:for-each>
       <p:archive name="create-debug-zip" relative-to="{$debug-dir-uri}"/>
+      <p:set-properties name="set-debug-zip-uri">
+        <p:with-option name="properties" select="map{xs:QName('base-uri'): $base-dir-uri-for-zips || 'debug.zip'}"/>
+      </p:set-properties>
+      <p:identity message="ddu: {$debug-dir-uri}, bu: {p:document-property(., 'base-uri')}"/>
     </p:when>
     <p:otherwise>
       <p:output port="result" sequence="true" primary="true"/>
@@ -104,13 +111,13 @@
     </p:otherwise>
   </p:choose>
   
-  <p:set-properties name="set-debug-zip-uri">
-    <p:with-option name="properties" select="map{xs:QName('base-uri'): $base-dir-uri-for-zips || 'debug.zip'}"/>
-  </p:set-properties>
-  
   <p:archive name="create-output-zip" relative-to="{$input-base-uri}">
     <p:with-input port="source" pipe="input@conditionally-adjust-uris result@conditionally-adjust-uris 
-      htmlreport@conditionally-adjust-uris rendering@validate result@set-debug-zip-uri"/>
+      htmlreport@conditionally-adjust-uris rendering@validate result@conditionally-create-debug-zip"/>
   </p:archive>
+  
+  <p:if test="$debug = 'yes' and normalize-space($debug-dir-uri)">
+    <p:file-delete name="delete-debug-dir" recursive="true" href="{$debug-dir-uri}"/>
+  </p:if>
 
 </p:declare-step>

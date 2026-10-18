@@ -64,8 +64,10 @@
     'pi_always': keep them as processing instructions, 'pi_changed': only keep them if the current path differs,
     'yes': keep them</p:documentation>
   </p:option>
-  <p:option name="debug-dir-uri" select="''"/>
+  <p:option name="debug-dir" as="xs:string?"/>
   <p:option name="debug" select="'no'"/>
+  <p:option name="output-dir" select="'out'"/>
+  <p:option name="rendering-only" select="false()"/>
   
   <p:documentation>
     0. Read and expand Schema (NVDL or Schematron). For speed-up, an already expanded schema can be passed to the step.
@@ -107,6 +109,8 @@
        b. apply 2. to this input (do we support archives in archives? not yet)
     4. Create HTML and brief report
   </p:documentation>
+
+  <p:variable name="debug-dir-uri" select="$debug-dir ! p:urify(.)"/>
 
   <sbf:expand-schema name="expand-schema">
     <p:with-input pipe="schema@batch-val"/>
@@ -207,4 +211,24 @@
   <p:set-properties name="htmlreport-set-properties">
     <p:with-option name="properties" select="map{'serialization': map{'method': 'xhtml', 'html-version': '5'}}"/>
   </p:set-properties>
+  
+  <p:variable name="output-dir-uri" select="$output-dir ! p:urify(.) ! concat(., '/')" as="xs:string?"/>
+
+  <p:if test="exists($output-dir-uri)" name="whether-to-store-outputs">
+    <p:choose name="which-outputs-to-store">
+      <p:when test="$rendering-only">
+        <p:for-each name="store-renderings">
+          <p:with-input pipe="rendering@input-files"/>
+          <p:store href="{$output-dir-uri || replace(p:document-property(., 'base-uri'), '^.+/', '')}"/>
+        </p:for-each>
+      </p:when>
+      <p:otherwise>
+        <p:for-each name="store-outputs">
+          <p:with-input pipe="rendering@input-files result@htmlreport-set-properties result@set-output-base-uri"/>
+          <p:store href="{$output-dir-uri || replace(p:document-property(., 'base-uri'), '^.+/', '')}"/>
+        </p:for-each>    
+      </p:otherwise>
+    </p:choose>
+  </p:if>
+  
 </p:declare-step>
