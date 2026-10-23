@@ -8,8 +8,8 @@ source "$SCRIPT_DIR/common.sh"
 usage() {
   cat <<'EOF'
 Usage:
-  validate.sh (-s SCHEMA | -p PROFILE) [-o DIR [-r]] [-d DEBUGDIR] INPUT
-  validate.sh (-s SCHEMA | -p PROFILE) -a FILE [-d DEBUGDIR] INPUT
+  validate.sh (-s SCHEMA | -p PROFILE) [-o DIR ([-r] | [-n])] [-d DEBUGDIR] INPUT
+  validate.sh (-s SCHEMA | -p PROFILE) -a FILE [-n] [-d DEBUGDIR] INPUT
 
 Options:
   -s SCHEMA    Schema file path or file: URI
@@ -17,6 +17,7 @@ Options:
   -o DIR       Output directory (default: /dev/null)
   -a FILE      Write archive output to FILE; selects validation-archive.xpl
   -r           Render HTML only; requires -o and cannot be combined with -a
+  -n           Do not attempt to render HTML; cannot be combined with -r
   -d DEBUGDIR  Enable debugging and use DEBUGDIR for debug output
   -h           Show this help
 
@@ -37,16 +38,18 @@ OUTPUT_DIR="out"
 OUTPUT_DIR_SET=false
 ARCHIVE=""
 RENDERING_ONLY=false
+RENDERING=true
 DEBUG=false
 DEBUG_DIR=""
 
-while getopts ':s:p:o:a:rd:h' opt; do
+while getopts ':s:p:o:a:rnd:h' opt; do
   case "$opt" in
     s) SCHEMA=$OPTARG ;;
     p) PROFILE=$OPTARG ;;
     o) OUTPUT_DIR=$OPTARG; OUTPUT_DIR_SET=true ;;
     a) ARCHIVE=$OPTARG ;;
     r) RENDERING_ONLY=true ;;
+    n) RENDERING_ONLY=false; RENDERING=false ;;
     d) DEBUG=yes; DEBUG_DIR=$OPTARG ;;
     h) usage; exit 0 ;;
     :) die "option -$OPTARG requires an argument" ;;
@@ -82,6 +85,8 @@ if [[ -n "$ARCHIVE" ]]; then
 else
   [[ "$RENDERING_ONLY" == false || "$OUTPUT_DIR_SET" == true ]] ||
     die "option -r requires an explicit -o DIR"
+  [[ "$RENDERING_ONLY" == false || "$RENDERING" == true ]] ||
+    die "option -r cannot be combined with -n"
   PIPELINE="$SBF_ROOT/sbf/validate/validate.xpl"
 fi
 
@@ -112,6 +117,7 @@ ARGS=(
 
 OPTIONS=(
   "debug=$DEBUG"
+  "rendering=$RENDERING"
 )
 
 if [[ -n "$ARCHIVE" ]]; then

@@ -67,7 +67,8 @@
   <p:option name="debug-dir" as="xs:string?"/>
   <p:option name="debug" select="'no'"/>
   <p:option name="output-dir" select="'out'"/>
-  <p:option name="rendering-only" select="false()"/>
+  <p:option name="rendering-only" select="false()" as="xs:boolean"/>
+  <p:option name="rendering" select="true()" as="xs:boolean"/>
   
   <p:documentation>
     0. Read and expand Schema (NVDL or Schematron). For speed-up, an already expanded schema can be passed to the step.
@@ -170,6 +171,7 @@
       <p:with-input port="schema" pipe="result@expand-schema"/>
       <p:with-input port="source" pipe="result@zip-or-xml"/>
       <p:with-input port="contents" pipe="contents@zip-or-xml"/>
+      <p:with-option name="rendering" select="$rendering"/>
       <p:with-option name="debug" select="$debug"/>
       <p:with-option name="debug-dir-uri" select="$debug-dir-uri"/>
     </sbf:schematron-for-namespace>
@@ -216,7 +218,7 @@
 
   <p:if test="exists($output-dir-uri)" name="whether-to-store-outputs">
     <p:choose name="which-outputs-to-store">
-      <p:when test="$rendering-only">
+      <p:when test="$rendering-only and $rendering">
         <p:for-each name="store-renderings">
           <p:with-input pipe="rendering@input-files"/>
           <p:store href="{$output-dir-uri || replace(p:document-property(., 'base-uri'), '^.+/', '')}"/>

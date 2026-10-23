@@ -68,6 +68,8 @@
   <p:option name="debug-dir-uri" select="''"/>
   <p:option name="debug" select="'no'"/>
   
+  <p:option name="rendering" as="xs:boolean"/>
+  
   <p:variable name="namespace-uri" as="xs:string" select="namespace-uri(/*) => string()"/>
   <p:variable name="local-name" as="xs:string" select="local-name(/*)"/>
 
@@ -120,7 +122,7 @@
       <p:output port="result-contents" pipe="result-contents@apply-fixes" sequence="true"/>
       <p:output port="result-archive-data-uri-map" pipe="result@conditionally-compute-archive-data-uri-map" 
                 content-types="application/json"/>
-      <p:output port="rendering" pipe="result@render" sequence="true" content-types="any"/>
+      <p:output port="rendering" pipe="result@conditionally-render" sequence="true" content-types="any"/>
       <sbf:add-srcpaths name="add-srcpaths">
         <p:with-input pipe="source@schematron-for-namespace"/>
       </sbf:add-srcpaths>
@@ -186,13 +188,22 @@
 
       <p:identity name="fixed-doc-into-focus-again"><p:with-input pipe="result@remove-srcpath-in-fixed-doc"/></p:identity>
       
-      <sbf:render name="render">
-        <p:with-input port="schema" pipe="schema@schematron-for-namespace">
-          <p:documentation>The rendering pipeline (XProc) may be specified in
-            /nvdl:rules/nvdl:namespace/sbf:rendering-pipeline/@href</p:documentation>
-        </p:with-input>
-        <p:with-input port="archive-data-uri-map" pipe="result@conditionally-compute-archive-data-uri-map"/>
-      </sbf:render>
+      <p:choose name="conditionally-render">
+        <p:when test="$rendering">
+          <p:output port="result" primary="true" sequence="true"/>
+          <sbf:render name="rendering">
+            <p:with-input port="schema" pipe="schema@schematron-for-namespace">
+              <p:documentation>The rendering pipeline (XProc) may be specified in
+                /nvdl:rules/nvdl:namespace/sbf:rendering-pipeline/@href</p:documentation>
+            </p:with-input>
+            <p:with-input port="archive-data-uri-map" pipe="result@conditionally-compute-archive-data-uri-map"/>
+          </sbf:render>  
+        </p:when>
+        <p:otherwise>
+          <p:output port="result" primary="true" sequence="true"/>
+          <p:identity><p:with-input><p:empty/></p:with-input></p:identity>
+        </p:otherwise>
+      </p:choose>
     </p:otherwise>
   </p:choose>
   
@@ -223,7 +234,7 @@
             <p:output port="result" primary="true"/>
             <p:output port="rendering" sequence="true" content-types="any" pipe="rendering@recursive-schematron-for-namespace"/>
             <p:identity name="current-into-focus-again"><p:with-input pipe="current@process-xml-entries"/></p:identity>
-            <sbf:schematron-for-namespace name="recursive-schematron-for-namespace">
+            <sbf:schematron-for-namespace name="recursive-schematron-for-namespace" rendering="{$rendering}">
               <p:with-input port="schema" pipe="schema@schematron-for-namespace"/>
               <p:with-input port="contents"><p:empty/>
                 <!--<p:documentation>The complete (fixed) contents port needs to be passed to each step because an XML
