@@ -8,6 +8,7 @@
   xmlns:c="http://www.w3.org/ns/xproc-step"
   xmlns:map="http://www.w3.org/2005/xpath-functions/map"
   xmlns:tr="http://transpect.io"
+  xmlns:output="http://www.w3.org/2010/xslt-xquery-serialization"
   version="3.1" 
   name="schematron-for-namespace" type="sbf:schematron-for-namespace">
 
@@ -55,7 +56,7 @@
     <p:inline content-type="application/json" expand-text="false">{}</p:inline>
   </p:input>
   
-  <p:output port="result" primary="true" pipe="result@validate-if-schematron-exists-for-namespace">
+  <p:output port="result" primary="true" pipe="result@set-serialization-props">
     <p:documentation>The updated zip manifest or XML file that appeared on the source port. Updated:
     after fixes have been applied.</p:documentation>
   </p:output>
@@ -152,6 +153,8 @@
         <p:with-input port="contents" pipe="contents@schematron-for-namespace"/>
       </sbf:apply-fixes>
       
+      <p:identity message="DOC PROPS (main processing): {serialize(p:document-properties(.), map{'method':'json'})}"></p:identity>
+      
       <tr:oxy-validate-with-schematron name="validate-with-schematron_pass2">
         <p:with-option name="parameters" select="$consolidated-params"/>
         <p:with-input port="schema" pipe="result@schematron-from-nvdl-or-standalone"/>
@@ -207,6 +210,44 @@
     </p:otherwise>
   </p:choose>
   
+  <p:identity name="schema-into-focus-for-serialization-params">
+    <p:with-input pipe="schema@schematron-for-namespace"/>
+  </p:identity>
+  
+  <p:variable name="serialization-overridden" as="xs:boolean" 
+    select="exists(/nvdl:rules/nvdl:namespace[@ns = $namespace-uri]/output:serialization-parameters)"/>
+  
+  <p:for-each name="serialization-params">
+    <p:with-input select="/nvdl:rules/nvdl:namespace[@ns = $namespace-uri]/output:serialization-parameters/output:*"/>
+    <p:output port="result" content-types="application/json"/>
+    <p:identity>
+      <p:with-input select="map:entry(xs:QName(/*/local-name()), string(/*/@value))"/>
+    </p:identity>
+  </p:for-each>
+  
+  <p:variable name="serialization-params" as="map(*)?" collection="true" select="collection()"/>
+  
+  <p:identity name="output-into-focus">
+    <p:with-input pipe="result@validate-if-schematron-exists-for-namespace"/>
+  </p:identity>
+  
+  <p:choose name="set-serialization-props">
+    <p:when test="$serialization-overridden">
+      <p:output port="result" primary="true"/>
+      <p:set-properties>
+        <p:with-option name="properties" 
+          select="map{xs:QName('serialization'): map:merge((map{'method': 'xml'}, $serialization-params),
+                                                            map{'duplicates': 'use-last'})}"/>
+      </p:set-properties>
+    </p:when>
+    <p:otherwise>
+      <p:output port="result" primary="true"/>
+      <p:identity/>    
+    </p:otherwise>
+  </p:choose>
+  
+  <p:identity message="DOC PROPS (after normal processing): {serialize(p:document-properties(.), map{'method':'json'})}"/>
+  
   <p:choose name="process-contents">
     <p:documentation>If the previous validation/fix/validation steps operated on a zip manifest, process
       each of the XML content files in the zip with this sbf:schematron-for-namespace step recursively.</p:documentation>
@@ -245,6 +286,7 @@
               <p:with-option name="debug" select="$debug"/>
               <p:with-option name="debug-dir-uri" select="$debug-dir-uri"/>
             </sbf:schematron-for-namespace>
+            <p:identity message="DOC PROPS (recursive XML processing): {serialize(p:document-properties(.), map{'method':'json'})}"/>
           </p:when>
           <p:otherwise>
             <p:output port="result" primary="true"/>
