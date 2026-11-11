@@ -128,9 +128,9 @@
         <p:with-input pipe="source@schematron-for-namespace"/>
       </sbf:add-srcpaths>
       <p:variable name="base-uri" as="xs:string?" select="p:urify(p:document-property(., 'base-uri'))"/>
-      <p:variable name="params" as="map(*)*" pipe="params@schematron-from-nvdl-or-standalone" 
+      <p:variable name="params" as="map(xs:QName, item()+)*" pipe="params@schematron-from-nvdl-or-standalone" 
         select="collection()" collection="true"/>
-      <p:variable name="consolidated-params" as="map(*)*" 
+      <p:variable name="consolidated-params" as="map(xs:QName, item()+)*" 
         select="map:merge((map{xs:QName('allow-foreign'): 'true'}, $params), map{'duplicates': 'combine'})"/>
       <tr:oxy-validate-with-schematron name="validate-with-schematron" 
         p:message="Schematron validation base URI: {$base-uri}, top-level element name: {/*/name()}">
@@ -225,7 +225,7 @@
     </p:identity>
   </p:for-each>
   
-  <p:variable name="serialization-params" as="map(*)?" collection="true" select="collection()"/>
+  <p:variable name="serialization-params" as="map(xs:QName, item()+)?" collection="true" select="collection()"/>
   
   <p:identity name="output-into-focus">
     <p:with-input pipe="result@validate-if-schematron-exists-for-namespace"/>

@@ -12,6 +12,7 @@
   name="render" type="sbf:render">
 
   <p:import href="http://transpect.io/xproc-util/store-debug/xpl/store-debug.xpl"/>
+  <p:import href="../helper/params-to-json.xpl"/>
   
   <p:documentation>Will try to load the rendering pipeline that is specified in
     /nvdl:rules/nvdl:namespace/sbf:rendering-pipeline/@href and apply it to the fixed XML.</p:documentation>
@@ -48,7 +49,7 @@
     <p:with-input pipe="schema@render"/>
   </p:identity>
   
-  <p:variable name="pipeline-spec" as="element(sbf:pipeline)?"
+  <p:variable name="pipeline-spec" as="element(sbf:rendering-pipeline)?"
     select="/nvdl:rules/nvdl:namespace[@ns = $namespace-uri]
               /sbf:rendering-pipeline[empty(@local-names)
                                       or tokenize(@local-names) = $local-name]"/>
@@ -62,8 +63,9 @@
         <p:output port="params" sequence="true" pipe="result@param-sets" content-types="application/json"/>
         <p:for-each name="param-sets">
           <p:with-input select="$pipeline-spec/c:param-set"/>
-          <p:output port="result" content-types="application/json"/>
-          <p:cast-content-type content-type="application/json"/>
+          <p:output port="result" content-types="application/json" sequence="true"/>
+          <sbf:params-to-json/>
+<!--          <p:cast-content-type content-type="application/json"/>-->
         </p:for-each>
         <p:load href="{$pipeline-spec/@href}"/>
         <p:catch>
@@ -79,11 +81,17 @@
       <p:identity><p:with-input><p:empty/></p:with-input></p:identity>
     </p:otherwise>
   </p:choose>
+  
+  <p:variable name="pipeline-doc" as="document-node(element(p:declare-step))?" select="collection()" collection="true"/>
 
-  <p:variable name="params" as="map(*)*" pipe="params@pipeline-from-nvdl" 
+  <p:variable name="params" as="map(xs:QName, item()+)*" pipe="params@pipeline-from-nvdl" 
     select="collection()" collection="true"/>
     
-  <p:variable name="parameters" as="map(*)?" select="if (exists($params)) 
+  <!--<p:identity message="render.xpl parameters0: {serialize($params, map{'method': 'json'})}">
+    <p:with-input pipe="result@pipeline-from-nvdl"/>
+  </p:identity>-->
+  
+  <p:variable name="parameters" as="map(xs:QName, item()+)?" select="if (exists($params)) 
                                                      then map:merge($params, map{'duplicates': 'combine'})
                                                      else ()"/>
   
@@ -92,13 +100,13 @@
   </p:identity>
   
   <p:choose name="conditionally-render">
-    <p:when test="exists($parameters)">
+    <p:when test="exists($pipeline-doc)">
       <p:output port="result" primary="true"/>
-      <p:run name="run-rendering-pipeline">
+      <p:run name="run-rendering-pipeline" message="render.xpl parameters1: {serialize($parameters, map{'method': 'json'})}">
         <p:with-input pipe="result@pipeline-into-focus"/>
         <p:run-input port="source" pipe="source@render" primary="true"/>
         <p:run-input port="archive-data-uri-map" pipe="archive-data-uri-map@render"/>
-        <p:run-option name="parameters" as="map(*)?" select="$parameters"/>
+        <p:run-option name="parameters" as="map(xs:QName, item()+)" select="$parameters"/>
         <p:output port="result" primary="true" sequence="true" content-types="any"/>
       </p:run>
     </p:when>

@@ -13,7 +13,7 @@
   
   <p:option name="key-type" as="xs:string" select="'QName'"/>
 
-  <p:input port="source" sequence="true" select="/*/*:param">
+  <p:input port="source" sequence="true">
     <!--<p:inline><c:param-set>
         <c:param name="foo" value="bar"/>
         <c:param name="baz" value="bar"/>
@@ -24,18 +24,23 @@
       </sbf:param-set>
     </p:inline>-->
   </p:input>
-
+  
   <p:output port="result" sequence="true" content-types="application/json"/>
   
+  <p:identity>
+    <p:with-input select="/*/*:param"/>
+  </p:identity>
+
   <p:for-each>
     <p:output port="result" primary="true" content-types="application/json"/>
+    <p:identity message="PARAM {/*:param/@name} VALUE {/*:param/@value} SER {serialize(.)}"/>
     <p:identity>
       <p:with-input select="map:entry(if ($key-type = 'QName') then xs:QName(/*:param/@name) else string(/*:param/@name), 
                                       string(/*:param/@value))"/>
     </p:identity>
   </p:for-each>
   
-  <!--  <p:variable name="merged" as="map(*)*" select="map:merge(collection())" collection="true"/>
+ <!--   <p:variable name="merged" as="map(*)*" select="map:merge(collection())" collection="true"/>
   
   <p:identity message="FFFF {serialize($merged, map{'method':'json'})} {map:keys($merged)[1] ! . instance of xs:QName}"/>-->
 </p:declare-step>
