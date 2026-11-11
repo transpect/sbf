@@ -82,7 +82,7 @@
     </p:otherwise>
   </p:choose>
   
-  <p:variable name="pipeline-doc" as="document-node(element(p:declare-step))?" select="collection()" collection="true"/>
+  <p:variable name="pipeline-doc" as="document-node(element(p:declare-step))?" select="collection()[p:declare-step]" collection="true"/>
 
   <p:variable name="params" as="map(xs:QName, item()+)*" pipe="params@pipeline-from-nvdl" 
     select="collection()" collection="true"/>
