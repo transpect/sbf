@@ -41,10 +41,11 @@
   </p:option>
   <p:option name="debug-dir" as="xs:string?"/>
   <p:option name="debug" as="xs:string" select="'no'"/>
+  <p:option name="rendering" select="true()" as="xs:boolean"/>
   
   <p:variable name="debug-dir-uri" select="$debug-dir ! p:urify(.)"/>
   
-  <sbf:batch-val name="validate" debug="{$debug}" debug-dir="{$debug-dir-uri}">
+  <sbf:batch-val name="validate" debug="{$debug}" debug-dir="{$debug-dir-uri}" rendering="{$rendering}">
     <p:with-option name="input-uri" select="$input-uri"/>
     <p:with-option name="output-dir" select="()"/>
     <p:with-input port="schema" pipe="schema@val-zip"/>
